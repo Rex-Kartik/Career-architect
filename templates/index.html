@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Career Architect - Chart Your Future</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Flowbite CSS for pre-built components -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+    <!-- Mermaid.js for rendering the visual graph -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <!-- Google Fonts for a professional look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* All our custom CSS remains unchanged */
+        body {
+            background-color: #0B1120;
+            color: #E0E6F0;
+            font-family: 'Inter', sans-serif;
+        }
+        #background-animation {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; z-index: -1;
+            background: linear-gradient(135deg, #0B1120 0%, #10182c 100%);
+        }
+        .glass-card {
+            background: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+        }
+        .suggestions-container { position: relative; }
+        /* FIX: Removed the border-radius from the style block to rely on Tailwind classes */
+        #suggestions-box {
+            position: absolute; width: 100%; background-color: #1F2937;
+            border: 1px solid #374151; border-top: none;
+            z-index: 10;
+            max-height: 200px; overflow-y: auto;
+        }
+        .suggestion-item {
+            padding: 0.75rem 1rem; cursor: pointer; color: #D1D5DB;
+            transition: background-color 0.2s;
+            text-transform: capitalize;
+        }
+        .suggestion-active {
+            background-color: #374151;
+        }
+        .fade-in-out {
+            animation: fadeInOut 4.5s ease-in-out infinite;
+            opacity: 0; position: absolute;
+        }
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            10%, 25% { opacity: 1; }
+            33% { opacity: 0; }
+        }
+        .card-content {
+            max-height: 0; overflow: hidden;
+            transition: max-height 0.5s ease-in-out, margin-top 0.5s ease-in-out;
+        }
+        .card.open .card-content {
+            max-height: 500px;
+            margin-top: 1rem;
+        }
+        .chevron { transition: transform 0.3s ease-in-out; }
+        .card.open .chevron { transform: rotate(180deg); }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div id="background-animation"></div>
+
+    <!-- Main content container -->
+    <main class="relative z-10 w-full max-w-7xl mx-auto p-4 md:p-8 transition-all duration-500" id="main-content">
+        <section id="hero-section" class="min-h-screen flex flex-col items-center justify-center text-center">
+            <h1 class="text-4xl md:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400">
+                Chart Your Future.
+            </h1>
+            <p class="mt-4 text-lg md:text-xl text-gray-400 max-w-2xl">
+                Your personal AI mentor for navigating the complexities of your career path.
+                Turn ambition into a concrete action plan.
+            </p>
+            <form id="roadmap-form" class="w-full max-w-xl mt-10">
+                <div class="flex-grow suggestions-container">
+                    <input type="text" id="job-title-input" placeholder="Enter your dream job title (e.g., 'AI Ethicist')"
+                        class="w-full px-5 py-4 bg-gray-900/70 border border-gray-700 rounded-full focus:outline-none focus:ring-4 focus:ring-purple-500/50 transition-all text-lg text-center"
+                        autocomplete="off">
+                    <!-- FIX: Updated classes for a cohesive look. 'rounded-xl' is replaced with more specific classes. -->
+                    <div id="suggestions-box" class="mt-2 rounded-b-2xl shadow-lg"></div>
+                </div>
+                <button type="submit" class="hidden">Generate</button>
+            </form>
+        </section>
+
+        <!-- All other sections remain unchanged -->
+        <section id="loading-section" class="text-center text-gray-400 hidden my-16">
+            <div class="relative h-8 w-full max-w-md mx-auto text-xl">
+                 <p class="fade-in-out" style="animation-delay: 0s;">Analyzing your career goal...</p>
+                 <p class="fade-in-out" style="animation-delay: 1.5s;">Consulting millions of data points...</p>
+                 <p class="fade-in-out" style="animation-delay: 3s;">Designing your personalized path...</p>
+            </div>
+        </section>
+
+        <section id="results-dashboard" class="hidden">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold" id="roadmap-title"></h2>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="glass-card p-6">
+                    <h3 class="text-2xl font-bold mb-4">Visual Path</h3>
+                    <div id="mermaid-graph" class="mermaid flex justify-center items-start min-h-[400px] max-h-[60vh] overflow-auto"></div>
+                </div>
+                <div class="glass-card p-6">
+                    <h3 class="text-2xl font-bold mb-4">Your Action Plan</h3>
+                    <div id="roadmap-details" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2"></div>
+                </div>
+            </div>
+            <div class="text-center mt-12">
+                <button id="export-button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full transition-colors text-lg">
+                    Export Your Plan
+                </button>
+            </div>
+        </section>
+        
+        <div id="error-message" class="text-red-400 text-center mt-8 font-semibold"></div>
+    </main>
+    
+    <!-- The entire script section remains unchanged -->
+    <script>
+        mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+
+        const heroSection = document.getElementById('hero-section');
+        const loadingSection = document.getElementById('loading-section');
+        const resultsDashboard = document.getElementById('results-dashboard');
+        const form = document.getElementById('roadmap-form');
+        const jobTitleInput = document.getElementById('job-title-input');
+        const suggestionsBox = document.getElementById('suggestions-box');
+        const mermaidContainer = document.getElementById('mermaid-graph');
+        const detailsContainer = document.getElementById('roadmap-details');
+        const errorContainer = document.getElementById('error-message');
+        const exportButton = document.getElementById('export-button');
+        const roadmapTitle = document.getElementById('roadmap-title');
+        
+        let activeSuggestionIndex = -1;
+
+        document.body.style.overflow = 'hidden';
+
+        jobTitleInput.addEventListener('input', async () => {
+            const query = jobTitleInput.value.trim();
+            activeSuggestionIndex = -1; 
+            if (query.length < 2) { suggestionsBox.innerHTML = ''; return; }
+            const response = await fetch(`/api/search-suggestions?q=${encodeURIComponent(query)}`);
+            const suggestions = await response.json();
+            
+            suggestionsBox.innerHTML = '';
+            suggestions.forEach(suggestion => {
+                const div = document.createElement('div');
+                div.textContent = suggestion;
+                div.classList.add('suggestion-item');
+                div.onclick = () => {
+                    jobTitleInput.value = suggestion;
+                    suggestionsBox.innerHTML = '';
+                    form.requestSubmit();
+                };
+                suggestionsBox.appendChild(div);
+            });
+        });
+
+        jobTitleInput.addEventListener('keydown', (e) => {
+            const suggestions = suggestionsBox.querySelectorAll('.suggestion-item');
+            if (suggestions.length === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeSuggestionIndex = (activeSuggestionIndex + 1) % suggestions.length;
+                updateActiveSuggestion(suggestions);
+            } 
+            else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeSuggestionIndex = (activeSuggestionIndex - 1 + suggestions.length) % suggestions.length;
+                updateActiveSuggestion(suggestions);
+            }
+            else if (e.key === 'Enter' && activeSuggestionIndex > -1) {
+                e.preventDefault();
+                suggestions[activeSuggestionIndex].click();
+            }
+            else if (e.key === 'Tab' && suggestions.length > 0) {
+                e.preventDefault();
+                if (activeSuggestionIndex === -1) activeSuggestionIndex = 0;
+                jobTitleInput.value = suggestions[activeSuggestionIndex].textContent;
+                suggestionsBox.innerHTML = '';
+            }
+        });
+
+        function updateActiveSuggestion(suggestions) {
+            suggestions.forEach((suggestion, index) => {
+                if (index === activeSuggestionIndex) {
+                    suggestion.classList.add('suggestion-active');
+                    suggestion.scrollIntoView({ block: 'nearest' });
+                } else {
+                    suggestion.classList.remove('suggestion-active');
+                }
+            });
+        }
+        
+        document.addEventListener('click', (e) => { if (!jobTitleInput.contains(e.target)) suggestionsBox.innerHTML = ''; });
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const jobTitle = jobTitleInput.value.trim();
+            if (!jobTitle) return;
+
+            document.body.style.overflow = 'hidden'; 
+            heroSection.classList.add('hidden');
+            resultsDashboard.classList.add('hidden');
+            loadingSection.classList.remove('hidden');
+            errorContainer.textContent = '';
+
+            try {
+                const response = await fetch('/api/create-roadmap', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ job_title: jobTitle })
+                });
+                if (!response.ok) throw new Error((await response.json()).error || 'Failed to generate roadmap.');
+                const data = await response.json();
+                displayRoadmap(data, jobTitle);
+            } catch (error) {
+                displayError(error.message);
+            } finally {
+                loadingSection.classList.add('hidden');
+            }
+        });
+
+        async function displayRoadmap(data, jobTitle) {
+            document.body.style.overflow = 'auto';
+            heroSection.classList.add('hidden');
+            resultsDashboard.classList.remove('hidden');
+            roadmapTitle.textContent = `Your Custom Roadmap: ${jobTitle}`;
+            
+            mermaidContainer.innerHTML = '';
+            const { svg } = await mermaid.render(`graph-${Date.now()}`, data.mermaid_graph);
+            mermaidContainer.innerHTML = svg;
+
+            const progress = JSON.parse(localStorage.getItem(`progress_${jobTitle.toLowerCase()}`) || '{}');
+
+            detailsContainer.innerHTML = '';
+            data.roadmap.forEach((step, index) => {
+                const isChecked = progress[index] ? 'checked' : '';
+                const skillsHtml = step.skills.map(skill => `<span class="bg-gray-700/50 text-gray-300 px-3 py-1 rounded-full text-xs font-medium">${skill}</span>`).join('');
+                
+                const card = document.createElement('div');
+                card.id = `step-card-${index}`;
+                card.className = 'card p-4 border border-gray-700 rounded-lg transition-all duration-300 cursor-pointer';
+                card.innerHTML = `
+                    <div class="flex items-start justify-between card-header">
+                        <div class="flex-grow"><h4 class="text-lg font-bold text-purple-300">${step.title}</h4></div>
+                        <div class="flex items-center">
+                            <input type="checkbox" data-step-index="${index}" class="form-checkbox h-5 w-5 bg-gray-800 border-gray-600 rounded text-green-500 focus:ring-green-500 ml-4 mt-1 z-10" ${isChecked}>
+                            <svg class="chevron w-6 h-6 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <p class="mt-1 text-gray-400 text-sm">${step.description}</p>
+                        <div class="mt-3 border-t border-gray-800 pt-3">
+                            <strong class="text-gray-500 text-sm">Skills:</strong>
+                            <div class="flex flex-wrap gap-2 mt-2">${skillsHtml}</div>
+                        </div>
+                        <div class="mt-3">
+                            <a href="${step.free_course.url}" target="_blank" rel="noopener noreferrer" class="text-green-400 hover:underline text-sm font-semibold">
+                                Recommended Course: ${step.free_course.name} &rarr;
+                            </a>
+                        </div>
+                    </div>
+                `;
+                detailsContainer.appendChild(card);
+            });
+            
+            setupInteractivity(jobTitle);
+            exportButton.onclick = () => exportToHtml(jobTitle, data.roadmap);
+        }
+
+        function setupInteractivity(jobTitle) {
+            const progress = JSON.parse(localStorage.getItem(`progress_${jobTitle.toLowerCase()}`) || '{}');
+
+            detailsContainer.querySelectorAll('.card').forEach((card, index) => {
+                const node = mermaidContainer.querySelector(`[id$="step${index}"]`);
+                const checkbox = card.querySelector('input[type="checkbox"]');
+
+                if (checkbox) {
+                    checkbox.addEventListener('click', (e) => e.stopPropagation());
+                    if (checkbox.checked && node) {
+                        const rect = node.querySelector('rect, path');
+                        if (rect) rect.style.fill = '#10B981';
+                    }
+                    checkbox.addEventListener('change', (e) => {
+                        progress[index] = e.target.checked;
+                        localStorage.setItem(`progress_${jobTitle.toLowerCase()}`, JSON.stringify(progress));
+                        if (node) {
+                            const rect = node.querySelector('rect, path');
+                            if (rect) rect.style.fill = e.target.checked ? '#10B981' : '#1F2937';
+                        }
+                    });
+                }
+                
+                if (node) {
+                    node.addEventListener('mouseover', () => card.style.borderColor = '#a855f7');
+                    node.addEventListener('mouseout', () => card.style.borderColor = 'rgba(255, 255, 255, 0.1)');
+                    card.addEventListener('mouseover', () => {
+                        const rect = node.querySelector('rect, path');
+                        if (rect) rect.style.stroke = '#a855f7';
+                    });
+                    card.addEventListener('mouseout', () => {
+                        const rect = node.querySelector('rect, path');
+                         if (rect) rect.style.stroke = '#9CA3AF';
+                    });
+                }
+                
+                card.addEventListener('click', () => card.classList.toggle('open'));
+            });
+        }
+        
+        function displayError(message) {
+            document.body.style.overflow = 'hidden';
+            resultsDashboard.classList.add('hidden');
+            heroSection.classList.remove('hidden');
+            errorContainer.textContent = `An error occurred: ${message}`;
+        }
+        
+        function exportToHtml(jobTitle, roadmapData) {
+            const detailsHtml = roadmapData.map(step => {
+                 const skillsHtml = step.skills.map(skill => `<span class="skill">${skill}</span>`).join('');
+                 return `<div class="card"><h3>${step.title}</h3><p>${step.description}</p><div class="skills-container"><strong>Skills:</strong> ${skillsHtml}</div><a href="${step.free_course.url}" target="_blank">Recommended Course: ${step.free_course.name}</a></div>`;
+            }).join('');
+            const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-with, initial-scale=1.0"><title>Roadmap: ${jobTitle}</title><style>body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; padding: 20px; }.container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }.card { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; }h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; } h3 { color: #34495e; }a { color: #2980b9; text-decoration: none; font-weight: bold; } a:hover { text-decoration: underline; }.skill { background-color: #ecf0f1; color: #34495e; padding: 3px 8px; border-radius: 12px; font-size: 0.9em; margin-right: 5px; display: inline-block; margin-top: 5px; }.skills-container { margin-top: 10px; }</style></head><body><div class="container"><h1>Your Career Roadmap: ${jobTitle}</h1>${detailsHtml}</div></body></html>`;
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `roadmap-${jobTitle.toLowerCase().replace(/\s+/g, '-')}.html`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+    
+    <!-- Flowbite JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+</body>
+</html>
+
