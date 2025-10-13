@@ -97,7 +97,7 @@ def get_ai_roadmap(job_title: str):
     }}
     """
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-pro')
         # We send the prompt and tell the model to guarantee a JSON response.
         response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
         return response.text
