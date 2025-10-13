@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 
 # This command finds and loads the variables from your .env file.
-load_dotenv() 
+load_dotenv()
 
 # --- VERCEL CHANGE: The Flask app is now initialized at the top level. ---
 # This allows Vercel's build system to import the 'app' object from this file.
