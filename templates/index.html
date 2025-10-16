@@ -1,38 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- The head section is updated to include the Supabase client-side library. -->
+    <!-- Specifies the character encoding for the document. -->
     <meta charset="UTF-8">
+    <!-- Sets the viewport to ensure the site is responsive and scales correctly on all devices. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- The title of the page, which appears in the browser tab and search engine results. -->
     <title>The Career Map - AI-Powered Career Roadmaps</title>
-    <!-- This line adds your site's icon (favicon) -->
+    <!-- Links to our new favicon file located in the static directory. -->
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <!-- The script for Tailwind CSS, a utility-first CSS framework for rapid UI development. -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- The stylesheet for Flowbite, a component library built on top of Tailwind CSS. -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+    <!-- The script for Mermaid.js, a library for rendering diagrams and charts from text-based code. -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <!-- Supabase Client-side Library for handling authentication in the browser. -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Links to Google Fonts to use the 'Inter' font for a professional look. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- A block for our own custom CSS styles. -->
     <style>
-        /* All our custom CSS remains the same. */
+        /* Sets the base background color, text color, and font for the entire page. */
         body {
             background-color: #0B1120;
             color: #E0E6F0;
             font-family: 'Inter', sans-serif;
         }
+        /* Styles for the animated background element. */
         #background-animation {
             position: fixed; top: 0; left: 0;
             width: 100%; height: 100%; z-index: -1;
             background: linear-gradient(135deg, #0B1120 0%, #10182c 100%);
         }
+        /* The "glassmorphism" effect for our main content cards. */
         .glass-card {
             background: rgba(17, 24, 39, 0.6);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 1rem;
         }
+        /* Styles for the search suggestions dropdown. */
         .suggestions-container { position: relative; }
         #suggestions-box {
             position: absolute; width: 100%; background-color: #1F2937;
@@ -40,14 +50,17 @@
             z-index: 10;
             max-height: 200px; overflow-y: auto;
         }
+        /* Styles for individual items within the suggestions dropdown. */
         .suggestion-item {
             padding: 0.75rem 1rem; cursor: pointer; color: #D1D5DB;
             transition: background-color 0.2s;
             text-transform: capitalize;
         }
+        /* A special style for the currently highlighted suggestion. */
         .suggestion-active {
             background-color: #374151;
         }
+        /* Keyframe animation for the loading text. */
         .fade-in-out {
             animation: fadeInOut 4.5s ease-in-out infinite;
             opacity: 0; position: absolute;
@@ -57,45 +70,24 @@
             10%, 25% { opacity: 1; }
             33% { opacity: 0; }
         }
+        /* Styles for the expandable content within the action plan cards. */
         .card-content {
             max-height: 0; overflow: hidden;
             transition: max-height 0.5s ease-in-out, margin-top 0.5s ease-in-out;
         }
+        /* When a card has the 'open' class, this style reveals the content. */
         .card.open .card-content {
             max-height: 500px;
             margin-top: 1rem;
         }
+        /* Styles for the chevron icon. */
         .chevron { transition: transform 0.3s ease-in-out; }
+        /* When a card has the 'open' class, this rotates the chevron icon. */
         .card.open .chevron { transform: rotate(180deg); }
-        .question-card {
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.5s ease, transform 0.5s ease;
-            position: absolute;
-            width: 100%;
-        }
-        .question-card.active {
-            opacity: 1;
-            transform: translateY(0);
-            position: relative;
-        }
     </style>
 </head>
 <body class="min-h-screen">
     <div id="background-animation"></div>
-
-    <!-- Header for Authentication -->
-    <header class="absolute top-0 right-0 p-6 z-20">
-        <div id="auth-container">
-            <button id="login-button" type="button" data-modal-target="auth-modal" data-modal-toggle="auth-modal" class="text-white bg-purple-600 hover:bg-purple-700 font-medium rounded-lg text-sm px-5 py-2.5">
-                Login / Register
-            </button>
-            <div id="user-info" class="hidden items-center">
-                <p class="text-sm text-gray-300 mr-4" id="user-email"></p>
-                <button id="logout-button" class="text-gray-400 hover:text-white text-sm">Logout</button>
-            </div>
-        </div>
-    </header>
 
     <main class="relative z-10 w-full max-w-7xl mx-auto p-4 md:p-8 transition-all duration-500" id="main-content">
         <!-- The hero section's HTML is unchanged. -->
@@ -117,40 +109,13 @@
             </form>
         </section>
         
-        <!-- The Questionnaire section that appears during loading. -->
-        <section id="questionnaire-section" class="text-center hidden my-16 max-w-xl mx-auto">
-            <h2 class="text-2xl font-bold mb-4">Personalizing your roadmap...</h2>
-            <p class="text-gray-400 mb-8">Answer a few quick questions while the AI does the heavy lifting.</p>
-            <div id="questions-container" class="relative min-h-[150px]">
-                <!-- Question 1 -->
-                <div id="question-1" class="question-card active">
-                    <h3 class="text-xl mb-4">What is your current experience level?</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="Beginner">Beginner</button>
-                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="Intermediate">Intermediate</button>
-                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="Advanced">Advanced</button>
-                    </div>
-                </div>
-                <!-- Question 2 -->
-                <div id="question-2" class="question-card">
-                    <h3 class="text-xl mb-4">What's your preferred learning style?</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="Video Courses">Video Courses</button>
-                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="Reading">Reading</button>
-                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="Projects">Projects</button>
-                    </div>
-                </div>
-                <!-- Question 3 -->
-                <div id="question-3" class="question-card">
-                    <h3 class="text-xl mb-4">How many hours per week can you dedicate to learning?</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="1-5 hours">1-5 hours</button>
-                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="5-10 hours">5-10 hours</button>
-                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="10+ hours">10+ hours</button>
-                    </div>
-                </div>
+        <!-- The simple loading indicator section, hidden by default. -->
+        <section id="loading-section" class="text-center hidden my-16">
+            <div class="relative h-8 w-full max-w-md mx-auto text-xl">
+                 <p class="fade-in-out" style="animation-delay: 0s;">Analyzing your career goal...</p>
+                 <p class="fade-in-out" style="animation-delay: 1.5s;">Consulting real-time web results...</p>
+                 <p class="fade-in-out" style="animation-delay: 3s;">Designing your personalized path...</p>
             </div>
-            <p id="refinement-message" class="text-gray-400 mt-8 hidden">Thanks! The AI is now refining your roadmap with these preferences...</p>
         </section>
 
         <section id="results-dashboard" class="hidden">
@@ -167,59 +132,21 @@
                     <div id="roadmap-details" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2"></div>
                 </div>
             </div>
-            <div class="text-center mt-12 space-x-4">
+            <div class="text-center mt-12">
                 <button id="export-button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full transition-colors text-lg">
                     Export Your Plan
-                </button>
-                <button id="save-prefs-button" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition-colors text-lg">
-                    Save Preferences
                 </button>
             </div>
         </section>
         
         <div id="error-message" class="text-red-400 text-center mt-8 font-semibold"></div>
     </main>
-
-    <!-- Flowbite Modal for Authentication -->
-    <div id="auth-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-modal md:h-full">
-        <div class="relative p-4 w-full max-w-md h-full md:h-auto">
-            <div class="relative bg-gray-800 rounded-lg shadow border border-gray-700">
-                <button type="button" class="absolute top-3 right-2.5 text-gray-400 bg-transparent hover:bg-gray-600 hover:text-white rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" data-modal-hide="auth-modal">
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
-                </button>
-                <div class="p-4 sm:p-5 text-center">
-                    <h3 class="mb-4 text-xl font-medium text-white">Login or Create Account</h3>
-                    <form id="auth-form" class="space-y-4">
-                        <div>
-                            <input type="email" id="auth-email" placeholder="Your Email" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-full p-2.5" required>
-                        </div>
-                        <div>
-                            <input type="password" id="auth-password" placeholder="Your Password (min. 6 characters)" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-full p-2.5" required>
-                        </div>
-                        <div class="flex justify-between space-x-4">
-                            <button type="button" id="signin-button" class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Sign In</button>
-                            <button type="button" id="signup-button" class="w-full text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Sign Up</button>
-                        </div>
-                    </form>
-                    <p id="auth-feedback" class="text-sm text-gray-400 mt-4"></p>
-                </div>
-            </div>
-        </div>
-    </div>
     
     <script>
-        // --- Supabase Client Initialization ---
-        // These values are now securely injected by the FastAPI server when the page loads.
-        const SUPABASE_URL = '{{ supabase_url | safe }}';
-        const SUPABASE_ANON_KEY = '{{ supabase_anon_key | safe }}';
-        const { createClient } = supabase;
-        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        // --- DOM Element Selections ---
+        // --- Initialization and DOM Selections ---
+        mermaid.initialize({ startOnLoad: false, theme: 'dark' });
         const heroSection = document.getElementById('hero-section');
-        const questionnaireSection = document.getElementById('questionnaire-section');
-        const questionsContainer = document.getElementById('questions-container');
-        const refinementMessage = document.getElementById('refinement-message');
+        const loadingSection = document.getElementById('loading-section');
         const resultsDashboard = document.getElementById('results-dashboard');
         const form = document.getElementById('roadmap-form');
         const jobTitleInput = document.getElementById('job-title-input');
@@ -229,122 +156,12 @@
         const errorContainer = document.getElementById('error-message');
         const exportButton = document.getElementById('export-button');
         const roadmapTitle = document.getElementById('roadmap-title');
-        const savePrefsButton = document.getElementById('save-prefs-button');
-        const loginButton = document.getElementById('login-button');
-        const userInfo = document.getElementById('user-info');
-        const userEmail = document.getElementById('user-email');
-        const logoutButton = document.getElementById('logout-button');
-        const authEmailInput = document.getElementById('auth-email');
-        const authPasswordInput = document.getElementById('auth-password');
-        const signinButton = document.getElementById('signin-button');
-        const signupButton = document.getElementById('signup-button');
-        const authFeedback = document.getElementById('auth-feedback');
         
         // --- State Variables ---
         let activeSuggestionIndex = -1;
-        const userAnswers = {};
         document.body.style.overflow = 'hidden';
 
-        // --- Authentication Logic ---
-        signupButton.addEventListener('click', async () => {
-            authFeedback.textContent = "Processing...";
-            const { error } = await supabaseClient.auth.signUp({ email: authEmailInput.value, password: authPasswordInput.value });
-            if (error) authFeedback.textContent = error.message;
-            else authFeedback.textContent = 'Success! Please check your email for a confirmation link.';
-        });
-
-        signinButton.addEventListener('click', async () => {
-            authFeedback.textContent = "Signing in...";
-            const { error } = await supabaseClient.auth.signInWithPassword({ email: authEmailInput.value, password: authPasswordInput.value });
-            if (error) authFeedback.textContent = error.message;
-        });
-
-        logoutButton.addEventListener('click', () => supabaseClient.auth.signOut());
-
-        supabaseClient.auth.onAuthStateChange(async (event, session) => {
-            authFeedback.textContent = '';
-            if (session) { // User is logged in
-                loginButton.classList.add('hidden');
-                userInfo.classList.remove('hidden');
-                userEmail.textContent = session.user.email;
-                const modal = document.getElementById('auth-modal');
-                const modalBackdrop = document.querySelector('[modal-backdrop]');
-                if(modal && !modal.classList.contains('hidden')) {
-                    modal.classList.add('hidden');
-                    modal.removeAttribute('aria-modal');
-                    modal.setAttribute('aria-hidden', 'true');
-                    modalBackdrop?.remove();
-                }
-                await getAndApplyPreferences(session.access_token);
-            } else { // User is logged out
-                loginButton.classList.remove('hidden');
-                userInfo.classList.add('hidden');
-                userEmail.textContent = '';
-                savePrefsButton.classList.add('hidden');
-            }
-        });
-
-        // --- Preferences Logic ---
-        async function getAndApplyPreferences(token) {
-            try {
-                const response = await fetch('/api/get-preferences', { headers: { 'Authorization': `Bearer ${token}` } });
-                if (!response.ok) return;
-                const prefs = await response.json();
-                if (prefs.experience) {
-                    console.log("Loaded user preferences:", prefs);
-                    Object.assign(userAnswers, prefs);
-                }
-            } catch (error) {
-                console.error("Failed to fetch preferences:", error);
-            }
-        }
-
-        savePrefsButton.addEventListener('click', async () => {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) { displayError("You must be logged in to save preferences."); return; }
-            savePrefsButton.textContent = 'Saving...';
-            try {
-                const response = await fetch('/api/save-preferences', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                    body: JSON.stringify(userAnswers)
-                });
-                if (!response.ok) throw new Error('Failed to save.');
-                savePrefsButton.textContent = 'Saved!';
-                setTimeout(() => { savePrefsButton.textContent = 'Save Preferences'; }, 2000);
-            } catch (error) {
-                displayError(error.message);
-                savePrefsButton.textContent = 'Save Preferences';
-            }
-        });
-
-        // --- Questionnaire Logic ---
-        function handleQuestionnaire() {
-            const questions = Array.from(questionsContainer.children);
-            let currentQuestionIndex = 0;
-            function showQuestion(index) {
-                questions.forEach((q, i) => q.classList.toggle('active', i === index));
-            }
-            questions.forEach((question, index) => {
-                const buttons = question.querySelectorAll('button');
-                buttons.forEach(button => {
-                    button.addEventListener('click', () => {
-                        const questionKey = ['experience', 'style', 'time'][index];
-                        userAnswers[questionKey] = button.dataset.answer;
-                        currentQuestionIndex++;
-                        if (currentQuestionIndex < questions.length) {
-                            showQuestion(currentQuestionIndex);
-                        } else {
-                            questionsContainer.classList.add('hidden');
-                            refinementMessage.classList.remove('hidden');
-                        }
-                    });
-                });
-            });
-        }
-        handleQuestionnaire();
-
-        // --- Search and Form Submission Logic ---
+        // --- Search and Keyboard Navigation Logic ---
         jobTitleInput.addEventListener('input', async () => {
             const query = jobTitleInput.value.trim();
             activeSuggestionIndex = -1; 
@@ -367,20 +184,9 @@
         jobTitleInput.addEventListener('keydown', (e) => {
             const suggestions = suggestionsBox.querySelectorAll('.suggestion-item');
             if (suggestions.length === 0) return;
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                activeSuggestionIndex = (activeSuggestionIndex + 1) % suggestions.length;
-                updateActiveSuggestion(suggestions);
-            } 
-            else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                activeSuggestionIndex = (activeSuggestionIndex - 1 + suggestions.length) % suggestions.length;
-                updateActiveSuggestion(suggestions);
-            }
-            else if (e.key === 'Enter' && activeSuggestionIndex > -1) {
-                e.preventDefault();
-                suggestions[activeSuggestionIndex].click();
-            }
+            if (e.key === 'ArrowDown') { e.preventDefault(); activeSuggestionIndex = (activeSuggestionIndex + 1) % suggestions.length; updateActiveSuggestion(suggestions); } 
+            else if (e.key === 'ArrowUp') { e.preventDefault(); activeSuggestionIndex = (activeSuggestionIndex - 1 + suggestions.length) % suggestions.length; updateActiveSuggestion(suggestions); }
+            else if (e.key === 'Enter' && activeSuggestionIndex > -1) { e.preventDefault(); suggestions[activeSuggestionIndex].click(); }
             else if (e.key === 'Tab' && suggestions.length > 0) {
                 e.preventDefault();
                 if (activeSuggestionIndex === -1) activeSuggestionIndex = 0;
@@ -390,109 +196,89 @@
         });
         function updateActiveSuggestion(suggestions) {
             suggestions.forEach((suggestion, index) => {
-                if (index === activeSuggestionIndex) {
-                    suggestion.classList.add('suggestion-active');
-                    suggestion.scrollIntoView({ block: 'nearest' });
-                } else {
-                    suggestion.classList.remove('suggestion-active');
-                }
+                suggestion.classList.toggle('suggestion-active', index === activeSuggestionIndex);
+                if (index === activeSuggestionIndex) suggestion.scrollIntoView({ block: 'nearest' });
             });
         }
         document.addEventListener('click', (e) => { if (!jobTitleInput.contains(e.target)) suggestionsBox.innerHTML = ''; });
         
+        // --- Form Submission Logic (Simplified) ---
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
             const jobTitle = jobTitleInput.value.trim();
             if (!jobTitle) return;
 
+            // Hide the main form and show the loading animation.
             heroSection.classList.add('hidden');
             resultsDashboard.classList.add('hidden');
+            loadingSection.classList.remove('hidden');
             errorContainer.textContent = '';
             
             try {
-                const initialResponsePromise = fetch('/api/create-roadmap', {
+                // Make a single call to the backend to generate or fetch the roadmap.
+                const response = await fetch('/api/create-roadmap', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ job_title: jobTitle })
                 });
-
-                const initialResponse = await initialResponsePromise;
-                if (!initialResponse.ok) throw new Error((await initialResponse.json()).detail || 'Failed to generate initial roadmap.');
-                const initialData = await initialResponse.json();
-
-                if (initialData.final_roadmap) {
-                    displayRoadmap(initialData.final_roadmap, initialData.corrected_title);
-                    return;
-                }
-
-                questionnaireSection.classList.remove('hidden');
+                if (!response.ok) throw new Error((await response.json()).detail || 'Failed to generate roadmap.');
                 
-                await new Promise(resolve => {
-                    const checkAnswers = setInterval(() => {
-                        if (Object.keys(userAnswers).length >= 3) {
-                            clearInterval(checkAnswers);
-                            resolve();
-                        }
-                    }, 100);
-                });
+                const responseData = await response.json();
                 
-                refinementMessage.classList.remove('hidden');
-
-                const refineResponse = await fetch('/api/refine-roadmap', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        initial_roadmap: initialData.initial_roadmap,
-                        answers: userAnswers,
-                        corrected_title: initialData.corrected_title
-                    })
-                });
-                if (!refineResponse.ok) throw new Error((await refineResponse.json()).detail || 'Failed to refine roadmap.');
-                
-                const finalData = await refineResponse.json();
-                displayRoadmap(finalData.final_roadmap, initialData.corrected_title);
+                // The backend returns the final roadmap, and we display it directly.
+                displayRoadmap(responseData.roadmap_data, responseData.corrected_title);
 
             } catch (error) {
+                // If anything goes wrong, we show an error message.
                 displayError(error.message);
             } finally {
-                questionnaireSection.classList.add('hidden');
+                // We always hide the loading spinner when the process is finished.
+                loadingSection.classList.add('hidden');
             }
         });
 
         // --- Display and Helper Functions ---
         async function displayRoadmap(roadmapData, correctedTitle) {
+            // Re-enable page scrolling and show the results dashboard.
             document.body.style.overflow = 'auto';
-            heroSection.classList.add('hidden');
             resultsDashboard.classList.remove('hidden');
             roadmapTitle.textContent = `Your Custom Roadmap: ${correctedTitle}`;
+            
+            // Render the Mermaid graph.
             mermaidContainer.innerHTML = '';
-            if (roadmapData.mermaid_graph) {
+            if (roadmapData && roadmapData.mermaid_graph) {
                 const { svg } = await mermaid.render(`graph-${Date.now()}`, roadmapData.mermaid_graph);
                 mermaidContainer.innerHTML = svg;
             }
+
+            // Load user's progress from local storage.
             const progress = JSON.parse(localStorage.getItem(`progress_${correctedTitle.toLowerCase()}`) || '{}');
+            
+            // Build and display the step-by-step action plan cards.
             detailsContainer.innerHTML = '';
-            roadmapData.roadmap.forEach((step, index) => {
-                const isChecked = progress[index] ? 'checked' : '';
-                const skillsHtml = (Array.isArray(step.skills) ? step.skills : []).map(skill => `<span class="bg-gray-700/50 text-gray-300 px-3 py-1 rounded-full text-xs font-medium">${skill}</span>`).join('');
-                const freeCourseHtml = (step.free_course && step.free_course.url) ? `<a href="${step.free_course.url}" target="_blank" rel="noopener noreferrer" class="block text-green-400 hover:underline text-sm font-semibold"><strong>Free Option:</strong> ${step.free_course.name} &rarr;</a>` : '<p class="text-sm text-gray-500">No free course found.</p>';
-                let paidCourseHtml = '';
-                if (step.paid_course && step.paid_course.url) {
-                    paidCourseHtml = `<a href="${step.paid_course.url}" target="_blank" rel="noopener noreferrer" class="block mt-3 text-yellow-400 hover:underline text-sm font-semibold"><strong>Premium Option:</strong> ${step.paid_course.name} &rarr;</a><p class="text-xs text-gray-400 mt-1 pl-2 border-l-2 border-yellow-400/50"><span class="font-bold">💡 Why consider this?</span> ${step.paid_course.reason || ''}</p>`;
-                }
-                const card = document.createElement('div');
-                card.id = `step-card-${index}`;
-                card.className = 'card p-4 border border-gray-700 rounded-lg transition-all duration-300 cursor-pointer';
-                card.innerHTML = `<div class="flex items-start justify-between card-header"><div class="flex-grow"><h4 class="text-lg font-bold text-purple-300">${step.title}</h4></div><div class="flex items-center"><input type="checkbox" data-step-index="${index}" class="form-checkbox h-5 w-5 bg-gray-800 border-gray-600 rounded text-green-500 focus:ring-green-500 ml-4 mt-1 z-10" ${isChecked}><svg class="chevron w-6 h-6 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div></div><div class="card-content"><p class="mt-1 text-gray-400 text-sm">${step.description}</p><div class="mt-3 border-t border-gray-800 pt-3"><strong class="text-gray-500 text-sm">Skills to Master:</strong><div class="flex flex-wrap gap-2 mt-2">${skillsHtml}</div></div><div class="mt-4 border-t border-gray-800 pt-3"><strong class="text-gray-500 text-sm">Learning Resources:</strong><div class="mt-2">${freeCourseHtml}</div>${paidCourseHtml}<em class="text-xs text-gray-500 mt-2 block">(Note: We may earn a commission from premium links)</em></div></div>`;
-                detailsContainer.appendChild(card);
-            });
-            setupInteractivity(correctedTitle);
-            exportButton.onclick = () => exportToHtml(correctedTitle, roadmapData.roadmap);
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (session && Object.keys(userAnswers).length > 0) {
-                savePrefsButton.classList.remove('hidden');
+            if (roadmapData && Array.isArray(roadmapData.roadmap)) {
+                roadmapData.roadmap.forEach((step, index) => {
+                    const isChecked = progress[index] ? 'checked' : '';
+                    const skillsHtml = (Array.isArray(step.skills) ? step.skills : []).map(skill => `<span class="bg-gray-700/50 text-gray-300 px-3 py-1 rounded-full text-xs font-medium">${skill}</span>`).join('');
+                    const freeCourseHtml = (step.free_course && step.free_course.url) ? `<a href="${step.free_course.url}" target="_blank" rel="noopener noreferrer" class="block text-green-400 hover:underline text-sm font-semibold"><strong>Free Option:</strong> ${step.free_course.name} &rarr;</a>` : '<p class="text-sm text-gray-500">No free course found.</p>';
+                    let paidCourseHtml = '';
+                    if (step.paid_course && step.paid_course.url) {
+                        paidCourseHtml = `<a href="${step.paid_course.url}" target="_blank" rel="noopener noreferrer" class="block mt-3 text-yellow-400 hover:underline text-sm font-semibold"><strong>Premium Option:</strong> ${step.paid_course.name} &rarr;</a><p class="text-xs text-gray-400 mt-1 pl-2 border-l-2 border-yellow-400/50"><span class="font-bold">💡 Why consider this?</span> ${step.paid_course.reason || ''}</p>`;
+                    }
+                    const card = document.createElement('div');
+                    card.id = `step-card-${index}`;
+                    card.className = 'card p-4 border border-gray-700 rounded-lg transition-all duration-300 cursor-pointer';
+                    card.innerHTML = `<div class="flex items-start justify-between card-header"><div class="flex-grow"><h4 class="text-lg font-bold text-purple-300">${step.title}</h4></div><div class="flex items-center"><input type="checkbox" data-step-index="${index}" class="form-checkbox h-5 w-5 bg-gray-800 border-gray-600 rounded text-green-500 focus:ring-green-500 ml-4 mt-1 z-10" ${isChecked}><svg class="chevron w-6 h-6 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div></div><div class="card-content"><p class="mt-1 text-gray-400 text-sm">${step.description}</p><div class="mt-3 border-t border-gray-800 pt-3"><strong class="text-gray-500 text-sm">Skills to Master:</strong><div class="flex flex-wrap gap-2 mt-2">${skillsHtml}</div></div><div class="mt-4 border-t border-gray-800 pt-3"><strong class="text-gray-500 text-sm">Learning Resources:</strong><div class="mt-2">${freeCourseHtml}</div>${paidCourseHtml}<em class="text-xs text-gray-500 mt-2 block">(Note: We may earn a commission from premium links)</em></div></div>`;
+                    detailsContainer.appendChild(card);
+                });
             }
+            
+            // Set up interactivity for the new cards and graph.
+            setupInteractivity(correctedTitle);
+            // Set up the export button.
+            exportButton.onclick = () => exportToHtml(correctedTitle, roadmapData.roadmap);
         }
+        
         function setupInteractivity(correctedTitle) {
              const progress = JSON.parse(localStorage.getItem(`progress_${correctedTitle.toLowerCase()}`) || '{}');
             detailsContainer.querySelectorAll('.card').forEach((card, index) => {
@@ -528,14 +314,17 @@
                 card.addEventListener('click', () => card.classList.toggle('open'));
             });
         }
+
         function displayError(message) {
             document.body.style.overflow = 'hidden';
             resultsDashboard.classList.add('hidden');
-            heroSection.classList.remove('hidden');
+            heroSection.classList.remove('hidden'); // Show the hero section again on error.
             errorContainer.textContent = `An error occurred: ${message}`;
         }
+        
         function exportToHtml(correctedTitle, roadmapData) {
-            const detailsHtml = roadmapData.map(step => {
+            if (!roadmapData || !Array.isArray(roadmapData.roadmap)) return;
+            const detailsHtml = roadmapData.roadmap.map(step => {
                  const skillsHtml = (Array.isArray(step.skills) ? step.skills : []).map(skill => `<span class="skill">${skill}</span>`).join('');
                  const freeCourseLink = (step.free_course && step.free_course.url) ? `<a href="${step.free_course.url}" target="_blank">Free Course: ${step.free_course.name}</a>` : '';
                  const paidCourseLink = (step.paid_course && step.paid_course.url) ? `<br><a href="${step.paid_course.url}" target="_blank">Premium Course: ${step.paid_course.name}</a><p class="reason">${step.paid_course.reason || ''}</p>` : '';
@@ -554,7 +343,7 @@
     
     <!-- Flowbite & Cuelinks scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
-    <!-- This now correctly links to your external cuelinks.js file. -->
+    <!-- This now correctly links to your external cuelinks.js file, which is served by FastAPI. -->
     <script type='text/javascript'>
       var cId = '249857';
 

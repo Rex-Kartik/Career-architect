@@ -1,16 +1,22 @@
 # Import the os module to access environment variables.
 import os
+# Import the json module to work with JSON data.
+import json
 # Import a utility to load environment variables from a .env file.
 from dotenv import load_dotenv
 # Import the client classes from the Supabase library for database interaction.
 from supabase import create_client, Client
-# Import our new, separated AI helper functions.
-from ai_logic import _get_course_ideas_for_step, _get_refined_course_details
+# Import our single, powerful AI roadmap generation function from the ai_logic module.
+# This ensures our update script uses the exact same logic as our live application.
+from ai_logic import get_ai_roadmap
 
 def run_course_update():
-    """The main function that runs the entire database update process using the two-stage RAG system."""
+    """
+    The main function that runs the entire database update process.
+    It now uses the consistent, single-call RAG system from ai_logic.py.
+    """
     
-    print("\n--- [CRON JOB] Starting Monthly Course Update (Two-Stage Refinement) ---")
+    print("\n--- [CRON JOB] Starting Monthly Course Update (Single-Call RAG) ---")
     
     try:
         # We initialize the Supabase client inside the function, using the environment variables.
@@ -20,52 +26,42 @@ def run_course_update():
             raise ValueError("Supabase credentials not found in environment.")
         supabase: Client = create_client(supabase_url, supabase_key)
         
-        # Fetch all existing roadmaps from the database.
-        response = supabase.table('roadmaps').select('id, job_title, roadmap_data').execute()
+        # Fetch all existing roadmaps from the database to be updated.
+        # We only need the 'id' and 'job_title' to perform the update.
+        response = supabase.table('roadmaps').select('id, job_title').execute()
         
         if not response.data:
             print("[CRON JOB] No roadmaps found. Exiting.")
             return "No roadmaps found."
 
-        print(f"[CRON JOB] Found {len(response.data)} roadmaps to check.")
-        total_updates = 0
-
+        print(f"[CRON JOB] Found {len(response.data)} roadmaps to re-evaluate and update.")
+        
         # Loop through each roadmap record from the database.
         for record in response.data:
-            needs_update = False
-            roadmap_data = record['roadmap_data']
             job_title = record['job_title']
-            print(f"  - Checking '{job_title.title()}'...")
+            print(f"  - Re-generating roadmap for '{job_title.title()}'...")
+            
+            # We call our main AI function to generate a completely new, up-to-date roadmap
+            # based on the latest real-time web search results.
+            ai_response_str = get_ai_roadmap(job_title)
+            
+            # If the AI successfully generated a new roadmap...
+            if ai_response_str:
+                try:
+                    # ...we parse the new JSON data...
+                    new_roadmap_data = json.loads(ai_response_str)
+                    # ...and then update the existing record in the database with the fresh data,
+                    # identifying the row by its unique 'id'.
+                    supabase.table('roadmaps').update({'roadmap_data': new_roadmap_data}).eq('id', record['id']).execute()
+                    print(f"    * Successfully updated roadmap for '{job_title.title()}'.")
+                except Exception as e:
+                    # If parsing or saving fails for this specific roadmap, we log it and continue to the next one.
+                    print(f"    - FAILED to parse or save update for '{job_title.title()}': {e}")
+            else:
+                # If the AI fails to generate a roadmap, we log it and move on.
+                print(f"    - FAILED to generate new roadmap for '{job_title.title()}'. Skipping.")
 
-            if 'roadmap' in roadmap_data and isinstance(roadmap_data['roadmap'], list):
-                # Loop through each step within the current roadmap.
-                for step in roadmap_data['roadmap']:
-                    # We now call the separated AI functions imported from ai_logic.py.
-                    course_ideas = _get_course_ideas_for_step(step.get('title', ''))
-                    
-                    if course_ideas:
-                        # We then run the refinement pass for both the free and paid ideas.
-                        refined_free_course = _get_refined_course_details(course_ideas.get('free_course'))
-                        refined_paid_course = _get_refined_course_details(course_ideas.get('paid_course'))
-                        
-                        # We compare the refined URLs to see if an update is needed.
-                        if refined_free_course and refined_free_course.get('url') and refined_free_course.get('url') != step.get('free_course', {}).get('url'):
-                            step['free_course'] = refined_free_course
-                            needs_update = True
-                            print(f"    * Refreshed FREE course to: {refined_free_course.get('name')}")
-                        
-                        if refined_paid_course and refined_paid_course.get('url') and refined_paid_course.get('url') != step.get('paid_course', {}).get('url'):
-                            step['paid_course'] = refined_paid_course
-                            needs_update = True
-                            print(f"    * Refreshed PAID course to: {refined_paid_course.get('name')}")
-
-            # If any courses in this roadmap were updated, we save the entire modified object back to the database.
-            if needs_update:
-                total_updates += 1
-                print(f"  -> Saving updates for '{job_title}'...")
-                supabase.table('roadmaps').update({'roadmap_data': roadmap_data}).eq('id', record['id']).execute()
-        
-        summary = f"Update complete. Checked {len(response.data)} roadmaps and refreshed {total_updates} of them."
+        summary = f"Update complete. Processed {len(response.data)} roadmaps."
         print(f"--- {summary} ---")
         return summary
 
@@ -75,6 +71,7 @@ def run_course_update():
         return error_message
 
 # This is the entry point that allows the script to be run directly from the command line.
+# For example, by running `python update_courses.py` in your terminal.
 if __name__ == '__main__':
     # We must load the environment variables from the .env file when running the script manually.
     load_dotenv()
