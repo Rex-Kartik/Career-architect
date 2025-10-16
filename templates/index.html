@@ -1,22 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- The head section is updated to include the Supabase client-side library. -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- NEW BRANDING: The title tag is updated to reflect the new name. -->
     <title>The Career Map - AI-Powered Career Roadmaps</title>
-    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Flowbite CSS for pre-built components -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
-    <!-- Mermaid.js for rendering the visual graph -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-    <!-- Google Fonts for a professional look -->
+    <!-- Supabase Client-side Library for handling authentication in the browser. -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
     <style>
-        /* All our custom CSS remains unchanged */
+        /* All our custom CSS remains the same. */
         body {
             background-color: #0B1120;
             color: #E0E6F0;
@@ -67,21 +65,42 @@
         }
         .chevron { transition: transform 0.3s ease-in-out; }
         .card.open .chevron { transform: rotate(180deg); }
+        .question-card {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            position: absolute;
+            width: 100%;
+        }
+        .question-card.active {
+            opacity: 1;
+            transform: translateY(0);
+            position: relative;
+        }
     </style>
 </head>
 <body class="min-h-screen">
     <div id="background-animation"></div>
 
-    <!-- Main content container -->
+    <!-- Header for Authentication -->
+    <header class="absolute top-0 right-0 p-6 z-20">
+        <div id="auth-container">
+            <button id="login-button" type="button" data-modal-target="auth-modal" data-modal-toggle="auth-modal" class="text-white bg-purple-600 hover:bg-purple-700 font-medium rounded-lg text-sm px-5 py-2.5">
+                Login / Register
+            </button>
+            <div id="user-info" class="hidden items-center">
+                <p class="text-sm text-gray-300 mr-4" id="user-email"></p>
+                <button id="logout-button" class="text-gray-400 hover:text-white text-sm">Logout</button>
+            </div>
+        </div>
+    </header>
+
     <main class="relative z-10 w-full max-w-7xl mx-auto p-4 md:p-8 transition-all duration-500" id="main-content">
-        
-        <!-- === HERO SECTION (Initial View) === -->
+        <!-- The hero section's HTML is unchanged. -->
         <section id="hero-section" class="min-h-screen flex flex-col items-center justify-center text-center">
-            <!-- NEW BRANDING: The main headline is now your official brand name. -->
             <h1 class="text-4xl md:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400">
                 The Career Map
             </h1>
-            <!-- NEW BRANDING: The tagline is updated to support the name. -->
             <p class="mt-4 text-lg md:text-xl text-gray-400 max-w-2xl">
                 Your personal AI mentor for generating intelligent career roadmaps.
             </p>
@@ -95,14 +114,41 @@
                 <button type="submit" class="hidden">Generate</button>
             </form>
         </section>
-
-        <!-- The rest of the HTML and the entire script section remain unchanged. -->
-        <section id="loading-section" class="text-center text-gray-400 hidden my-16">
-            <div class="relative h-8 w-full max-w-md mx-auto text-xl">
-                 <p class="fade-in-out" style="animation-delay: 0s;">Analyzing your career goal...</p>
-                 <p class="fade-in-out" style="animation-delay: 1.5s;">Consulting millions of data points...</p>
-                 <p class="fade-in-out" style="animation-delay: 3s;">Designing your personalized path...</p>
+        
+        <!-- The Questionnaire section that appears during loading. -->
+        <section id="questionnaire-section" class="text-center hidden my-16 max-w-xl mx-auto">
+            <h2 class="text-2xl font-bold mb-4">Personalizing your roadmap...</h2>
+            <p class="text-gray-400 mb-8">Answer a few quick questions while the AI does the heavy lifting.</p>
+            <div id="questions-container" class="relative min-h-[150px]">
+                <!-- Question 1 -->
+                <div id="question-1" class="question-card active">
+                    <h3 class="text-xl mb-4">What is your current experience level?</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="Beginner">Beginner</button>
+                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="Intermediate">Intermediate</button>
+                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="Advanced">Advanced</button>
+                    </div>
+                </div>
+                <!-- Question 2 -->
+                <div id="question-2" class="question-card">
+                    <h3 class="text-xl mb-4">What's your preferred learning style?</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="Video Courses">Video Courses</button>
+                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="Reading">Reading</button>
+                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="Projects">Projects</button>
+                    </div>
+                </div>
+                <!-- Question 3 -->
+                <div id="question-3" class="question-card">
+                    <h3 class="text-xl mb-4">How many hours per week can you dedicate to learning?</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="1-5 hours">1-5 hours</button>
+                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="5-10 hours">5-10 hours</button>
+                        <button class="p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-purple-500/20" data-answer="10+ hours">10+ hours</button>
+                    </div>
+                </div>
             </div>
+            <p id="refinement-message" class="text-gray-400 mt-8 hidden">Thanks! The AI is now refining your roadmap with these preferences...</p>
         </section>
 
         <section id="results-dashboard" class="hidden">
@@ -119,21 +165,59 @@
                     <div id="roadmap-details" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2"></div>
                 </div>
             </div>
-            <div class="text-center mt-12">
+            <div class="text-center mt-12 space-x-4">
                 <button id="export-button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full transition-colors text-lg">
                     Export Your Plan
+                </button>
+                <button id="save-prefs-button" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition-colors text-lg">
+                    Save Preferences
                 </button>
             </div>
         </section>
         
         <div id="error-message" class="text-red-400 text-center mt-8 font-semibold"></div>
     </main>
+
+    <!-- Flowbite Modal for Authentication -->
+    <div id="auth-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-modal md:h-full">
+        <div class="relative p-4 w-full max-w-md h-full md:h-auto">
+            <div class="relative bg-gray-800 rounded-lg shadow border border-gray-700">
+                <button type="button" class="absolute top-3 right-2.5 text-gray-400 bg-transparent hover:bg-gray-600 hover:text-white rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" data-modal-hide="auth-modal">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                </button>
+                <div class="p-4 sm:p-5 text-center">
+                    <h3 class="mb-4 text-xl font-medium text-white">Login or Create Account</h3>
+                    <form id="auth-form" class="space-y-4">
+                        <div>
+                            <input type="email" id="auth-email" placeholder="Your Email" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-full p-2.5" required>
+                        </div>
+                        <div>
+                            <input type="password" id="auth-password" placeholder="Your Password (min. 6 characters)" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-full p-2.5" required>
+                        </div>
+                        <div class="flex justify-between space-x-4">
+                            <button type="button" id="signin-button" class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Sign In</button>
+                            <button type="button" id="signup-button" class="w-full text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Sign Up</button>
+                        </div>
+                    </form>
+                    <p id="auth-feedback" class="text-sm text-gray-400 mt-4"></p>
+                </div>
+            </div>
+        </div>
+    </div>
     
     <script>
-        mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+        // --- Supabase Client Initialization ---
+        // These values are now securely injected by the FastAPI server when the page loads.
+        const SUPABASE_URL = '{{ supabase_url | safe }}';
+        const SUPABASE_ANON_KEY = '{{ supabase_anon_key | safe }}';
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // --- DOM Element Selections ---
         const heroSection = document.getElementById('hero-section');
-        const loadingSection = document.getElementById('loading-section');
+        const questionnaireSection = document.getElementById('questionnaire-section');
+        const questionsContainer = document.getElementById('questions-container');
+        const refinementMessage = document.getElementById('refinement-message');
         const resultsDashboard = document.getElementById('results-dashboard');
         const form = document.getElementById('roadmap-form');
         const jobTitleInput = document.getElementById('job-title-input');
@@ -143,18 +227,128 @@
         const errorContainer = document.getElementById('error-message');
         const exportButton = document.getElementById('export-button');
         const roadmapTitle = document.getElementById('roadmap-title');
+        const savePrefsButton = document.getElementById('save-prefs-button');
+        const loginButton = document.getElementById('login-button');
+        const userInfo = document.getElementById('user-info');
+        const userEmail = document.getElementById('user-email');
+        const logoutButton = document.getElementById('logout-button');
+        const authEmailInput = document.getElementById('auth-email');
+        const authPasswordInput = document.getElementById('auth-password');
+        const signinButton = document.getElementById('signin-button');
+        const signupButton = document.getElementById('signup-button');
+        const authFeedback = document.getElementById('auth-feedback');
         
+        // --- State Variables ---
         let activeSuggestionIndex = -1;
-
+        const userAnswers = {};
         document.body.style.overflow = 'hidden';
 
+        // --- Authentication Logic ---
+        signupButton.addEventListener('click', async () => {
+            authFeedback.textContent = "Processing...";
+            const { error } = await supabaseClient.auth.signUp({ email: authEmailInput.value, password: authPasswordInput.value });
+            if (error) authFeedback.textContent = error.message;
+            else authFeedback.textContent = 'Success! Please check your email for a confirmation link.';
+        });
+
+        signinButton.addEventListener('click', async () => {
+            authFeedback.textContent = "Signing in...";
+            const { error } = await supabaseClient.auth.signInWithPassword({ email: authEmailInput.value, password: authPasswordInput.value });
+            if (error) authFeedback.textContent = error.message;
+        });
+
+        logoutButton.addEventListener('click', () => supabaseClient.auth.signOut());
+
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+            authFeedback.textContent = '';
+            if (session) { // User is logged in
+                loginButton.classList.add('hidden');
+                userInfo.classList.remove('hidden');
+                userEmail.textContent = session.user.email;
+                const modal = document.getElementById('auth-modal');
+                const modalBackdrop = document.querySelector('[modal-backdrop]');
+                if(modal && !modal.classList.contains('hidden')) {
+                    modal.classList.add('hidden');
+                    modal.removeAttribute('aria-modal');
+                    modal.setAttribute('aria-hidden', 'true');
+                    modalBackdrop?.remove();
+                }
+                await getAndApplyPreferences(session.access_token);
+            } else { // User is logged out
+                loginButton.classList.remove('hidden');
+                userInfo.classList.add('hidden');
+                userEmail.textContent = '';
+                savePrefsButton.classList.add('hidden');
+            }
+        });
+
+        // --- Preferences Logic ---
+        async function getAndApplyPreferences(token) {
+            try {
+                const response = await fetch('/api/get-preferences', { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!response.ok) return;
+                const prefs = await response.json();
+                if (prefs.experience) {
+                    console.log("Loaded user preferences:", prefs);
+                    Object.assign(userAnswers, prefs);
+                }
+            } catch (error) {
+                console.error("Failed to fetch preferences:", error);
+            }
+        }
+
+        savePrefsButton.addEventListener('click', async () => {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) { displayError("You must be logged in to save preferences."); return; }
+            savePrefsButton.textContent = 'Saving...';
+            try {
+                const response = await fetch('/api/save-preferences', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                    body: JSON.stringify(userAnswers)
+                });
+                if (!response.ok) throw new Error('Failed to save.');
+                savePrefsButton.textContent = 'Saved!';
+                setTimeout(() => { savePrefsButton.textContent = 'Save Preferences'; }, 2000);
+            } catch (error) {
+                displayError(error.message);
+                savePrefsButton.textContent = 'Save Preferences';
+            }
+        });
+
+        // --- Questionnaire Logic ---
+        function handleQuestionnaire() {
+            const questions = Array.from(questionsContainer.children);
+            let currentQuestionIndex = 0;
+            function showQuestion(index) {
+                questions.forEach((q, i) => q.classList.toggle('active', i === index));
+            }
+            questions.forEach((question, index) => {
+                const buttons = question.querySelectorAll('button');
+                buttons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        const questionKey = ['experience', 'style', 'time'][index];
+                        userAnswers[questionKey] = button.dataset.answer;
+                        currentQuestionIndex++;
+                        if (currentQuestionIndex < questions.length) {
+                            showQuestion(currentQuestionIndex);
+                        } else {
+                            questionsContainer.classList.add('hidden');
+                            refinementMessage.classList.remove('hidden');
+                        }
+                    });
+                });
+            });
+        }
+        handleQuestionnaire();
+
+        // --- Search and Form Submission Logic ---
         jobTitleInput.addEventListener('input', async () => {
             const query = jobTitleInput.value.trim();
             activeSuggestionIndex = -1; 
             if (query.length < 2) { suggestionsBox.innerHTML = ''; return; }
             const response = await fetch(`/api/search-suggestions?q=${encodeURIComponent(query)}`);
             const suggestions = await response.json();
-            
             suggestionsBox.innerHTML = '';
             suggestions.forEach(suggestion => {
                 const div = document.createElement('div');
@@ -168,11 +362,9 @@
                 suggestionsBox.appendChild(div);
             });
         });
-
         jobTitleInput.addEventListener('keydown', (e) => {
             const suggestions = suggestionsBox.querySelectorAll('.suggestion-item');
             if (suggestions.length === 0) return;
-
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 activeSuggestionIndex = (activeSuggestionIndex + 1) % suggestions.length;
@@ -194,7 +386,6 @@
                 suggestionsBox.innerHTML = '';
             }
         });
-
         function updateActiveSuggestion(suggestions) {
             suggestions.forEach((suggestion, index) => {
                 if (index === activeSuggestionIndex) {
@@ -205,93 +396,106 @@
                 }
             });
         }
-        
         document.addEventListener('click', (e) => { if (!jobTitleInput.contains(e.target)) suggestionsBox.innerHTML = ''; });
-
+        
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
             const jobTitle = jobTitleInput.value.trim();
             if (!jobTitle) return;
 
-            document.body.style.overflow = 'hidden'; 
             heroSection.classList.add('hidden');
             resultsDashboard.classList.add('hidden');
-            loadingSection.classList.remove('hidden');
             errorContainer.textContent = '';
-
+            
             try {
-                const response = await fetch('/api/create-roadmap', {
+                const initialResponsePromise = fetch('/api/create-roadmap', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ job_title: jobTitle })
                 });
-                if (!response.ok) throw new Error((await response.json()).error || 'Failed to generate roadmap.');
+
+                const initialResponse = await initialResponsePromise;
+                if (!initialResponse.ok) throw new Error((await initialResponse.json()).detail || 'Failed to generate initial roadmap.');
+                const initialData = await initialResponse.json();
+
+                if (initialData.final_roadmap) {
+                    displayRoadmap(initialData.final_roadmap, initialData.corrected_title);
+                    return;
+                }
+
+                questionnaireSection.classList.remove('hidden');
                 
-                const responseData = await response.json();
-                displayRoadmap(responseData.roadmap_data, responseData.corrected_title);
+                await new Promise(resolve => {
+                    const checkAnswers = setInterval(() => {
+                        if (Object.keys(userAnswers).length >= 3) {
+                            clearInterval(checkAnswers);
+                            resolve();
+                        }
+                    }, 100);
+                });
+                
+                refinementMessage.classList.remove('hidden');
+
+                const refineResponse = await fetch('/api/refine-roadmap', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        initial_roadmap: initialData.initial_roadmap,
+                        answers: userAnswers,
+                        corrected_title: initialData.corrected_title
+                    })
+                });
+                if (!refineResponse.ok) throw new Error((await refineResponse.json()).detail || 'Failed to refine roadmap.');
+                
+                const finalData = await refineResponse.json();
+                displayRoadmap(finalData.final_roadmap, initialData.corrected_title);
 
             } catch (error) {
                 displayError(error.message);
             } finally {
-                loadingSection.classList.add('hidden');
+                questionnaireSection.classList.add('hidden');
             }
         });
 
+        // --- Display and Helper Functions ---
         async function displayRoadmap(roadmapData, correctedTitle) {
             document.body.style.overflow = 'auto';
             heroSection.classList.add('hidden');
             resultsDashboard.classList.remove('hidden');
             roadmapTitle.textContent = `Your Custom Roadmap: ${correctedTitle}`;
-            
             mermaidContainer.innerHTML = '';
-            const { svg } = await mermaid.render(`graph-${Date.now()}`, roadmapData.mermaid_graph);
-            mermaidContainer.innerHTML = svg;
-
+            if (roadmapData.mermaid_graph) {
+                const { svg } = await mermaid.render(`graph-${Date.now()}`, roadmapData.mermaid_graph);
+                mermaidContainer.innerHTML = svg;
+            }
             const progress = JSON.parse(localStorage.getItem(`progress_${correctedTitle.toLowerCase()}`) || '{}');
-
             detailsContainer.innerHTML = '';
             roadmapData.roadmap.forEach((step, index) => {
                 const isChecked = progress[index] ? 'checked' : '';
-                const skillsHtml = step.skills.map(skill => `<span class="bg-gray-700/50 text-gray-300 px-3 py-1 rounded-full text-xs font-medium">${skill}</span>`).join('');
-                
+                const skillsHtml = (Array.isArray(step.skills) ? step.skills : []).map(skill => `<span class="bg-gray-700/50 text-gray-300 px-3 py-1 rounded-full text-xs font-medium">${skill}</span>`).join('');
+                const freeCourseHtml = (step.free_course && step.free_course.url) ? `<a href="${step.free_course.url}" target="_blank" rel="noopener noreferrer" class="block text-green-400 hover:underline text-sm font-semibold"><strong>Free Option:</strong> ${step.free_course.name} &rarr;</a>` : '<p class="text-sm text-gray-500">No free course found.</p>';
+                let paidCourseHtml = '';
+                if (step.paid_course && step.paid_course.url) {
+                    paidCourseHtml = `<a href="${step.paid_course.url}" target="_blank" rel="noopener noreferrer" class="block mt-3 text-yellow-400 hover:underline text-sm font-semibold"><strong>Premium Option:</strong> ${step.paid_course.name} &rarr;</a><p class="text-xs text-gray-400 mt-1 pl-2 border-l-2 border-yellow-400/50"><span class="font-bold">💡 Why consider this?</span> ${step.paid_course.reason || ''}</p>`;
+                }
                 const card = document.createElement('div');
                 card.id = `step-card-${index}`;
                 card.className = 'card p-4 border border-gray-700 rounded-lg transition-all duration-300 cursor-pointer';
-                card.innerHTML = `
-                    <div class="flex items-start justify-between card-header">
-                        <div class="flex-grow"><h4 class="text-lg font-bold text-purple-300">${step.title}</h4></div>
-                        <div class="flex items-center">
-                            <input type="checkbox" data-step-index="${index}" class="form-checkbox h-5 w-5 bg-gray-800 border-gray-600 rounded text-green-500 focus:ring-green-500 ml-4 mt-1 z-10" ${isChecked}>
-                            <svg class="chevron w-6 h-6 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </div>
-                    <div class="card-content">
-                        <p class="mt-1 text-gray-400 text-sm">${step.description}</p>
-                        <div class="mt-3 border-t border-gray-800 pt-3">
-                            <strong class="text-gray-500 text-sm">Skills:</strong>
-                            <div class="flex flex-wrap gap-2 mt-2">${skillsHtml}</div>
-                        </div>
-                        <div class="mt-3">
-                            <a href="${step.free_course.url}" target="_blank" rel="noopener noreferrer" class="text-green-400 hover:underline text-sm font-semibold">
-                                Recommended Course: ${step.free_course.name} &rarr;
-                            </a>
-                        </div>
-                    </div>
-                `;
+                card.innerHTML = `<div class="flex items-start justify-between card-header"><div class="flex-grow"><h4 class="text-lg font-bold text-purple-300">${step.title}</h4></div><div class="flex items-center"><input type="checkbox" data-step-index="${index}" class="form-checkbox h-5 w-5 bg-gray-800 border-gray-600 rounded text-green-500 focus:ring-green-500 ml-4 mt-1 z-10" ${isChecked}><svg class="chevron w-6 h-6 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div></div><div class="card-content"><p class="mt-1 text-gray-400 text-sm">${step.description}</p><div class="mt-3 border-t border-gray-800 pt-3"><strong class="text-gray-500 text-sm">Skills to Master:</strong><div class="flex flex-wrap gap-2 mt-2">${skillsHtml}</div></div><div class="mt-4 border-t border-gray-800 pt-3"><strong class="text-gray-500 text-sm">Learning Resources:</strong><div class="mt-2">${freeCourseHtml}</div>${paidCourseHtml}<em class="text-xs text-gray-500 mt-2 block">(Note: We may earn a commission from premium links)</em></div></div>`;
                 detailsContainer.appendChild(card);
             });
-            
             setupInteractivity(correctedTitle);
             exportButton.onclick = () => exportToHtml(correctedTitle, roadmapData.roadmap);
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session && Object.keys(userAnswers).length > 0) {
+                savePrefsButton.classList.remove('hidden');
+            }
         }
-
         function setupInteractivity(correctedTitle) {
-            const progress = JSON.parse(localStorage.getItem(`progress_${correctedTitle.toLowerCase()}`) || '{}');
-
+             const progress = JSON.parse(localStorage.getItem(`progress_${correctedTitle.toLowerCase()}`) || '{}');
             detailsContainer.querySelectorAll('.card').forEach((card, index) => {
                 const node = mermaidContainer.querySelector(`[id$="step${index}"]`);
                 const checkbox = card.querySelector('input[type="checkbox"]');
-
                 if (checkbox) {
                     checkbox.addEventListener('click', (e) => e.stopPropagation());
                     if (checkbox.checked && node) {
@@ -307,7 +511,6 @@
                         }
                     });
                 }
-                
                 if (node) {
                     node.addEventListener('mouseover', () => card.style.borderColor = '#a855f7');
                     node.addEventListener('mouseout', () => card.style.borderColor = 'rgba(255, 255, 255, 0.1)');
@@ -320,24 +523,23 @@
                          if (rect) rect.style.stroke = '#9CA3AF';
                     });
                 }
-                
                 card.addEventListener('click', () => card.classList.toggle('open'));
             });
         }
-        
         function displayError(message) {
             document.body.style.overflow = 'hidden';
             resultsDashboard.classList.add('hidden');
             heroSection.classList.remove('hidden');
             errorContainer.textContent = `An error occurred: ${message}`;
         }
-        
         function exportToHtml(correctedTitle, roadmapData) {
             const detailsHtml = roadmapData.map(step => {
-                 const skillsHtml = step.skills.map(skill => `<span class="skill">${skill}</span>`).join('');
-                 return `<div class="card"><h3>${step.title}</h3><p>${step.description}</p><div class="skills-container"><strong>Skills:</strong> ${skillsHtml}</div><a href="${step.free_course.url}" target="_blank">Recommended Course: ${step.free_course.name}</a></div>`;
+                 const skillsHtml = (Array.isArray(step.skills) ? step.skills : []).map(skill => `<span class="skill">${skill}</span>`).join('');
+                 const freeCourseLink = (step.free_course && step.free_course.url) ? `<a href="${step.free_course.url}" target="_blank">Free Course: ${step.free_course.name}</a>` : '';
+                 const paidCourseLink = (step.paid_course && step.paid_course.url) ? `<br><a href="${step.paid_course.url}" target="_blank">Premium Course: ${step.paid_course.name}</a><p class="reason">${step.paid_course.reason || ''}</p>` : '';
+                 return `<div class="card"><h3>${step.title}</h3><p>${step.description}</p><div class="skills-container"><strong>Skills:</strong> ${skillsHtml}</div><div class="course-links">${freeCourseLink}${paidCourseLink}</div></div>`;
             }).join('');
-            const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Roadmap: ${correctedTitle}</title><style>body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; padding: 20px; }.container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }.card { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; }h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; } h3 { color: #34495e; }a { color: #2980b9; text-decoration: none; font-weight: bold; } a:hover { text-decoration: underline; }.skill { background-color: #ecf0f1; color: #34495e; padding: 3px 8px; border-radius: 12px; font-size: 0.9em; margin-right: 5px; display: inline-block; margin-top: 5px; }.skills-container { margin-top: 10px; }</style></head><body><div class="container"><h1>Your Career Roadmap: ${correctedTitle}</h1>${detailsHtml}</div></body></html>`;
+            const htmlContent = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Roadmap: ${correctedTitle}</title><style>body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; padding: 20px; }.container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }.card { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; }h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; } h3 { color: #34495e; }a { color: #2980b9; text-decoration: none; font-weight: bold; } a:hover { text-decoration: underline; }.skill { background-color: #ecf0f1; color: #34495e; padding: 3px 8px; border-radius: 12px; font-size: 0.9em; margin-right: 5px; display: inline-block; margin-top: 5px; }.skills-container, .course-links { margin-top: 10px; }.reason { font-size: 0.9em; color: #555; font-style: italic; margin-top: 5px; }</style></head><body><div class="container"><h1>Your Career Roadmap: ${correctedTitle}</h1>${detailsHtml}</div></body></html>`;
             const blob = new Blob([htmlContent], { type: 'text/html' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -348,8 +550,10 @@
         }
     </script>
     
-    <!-- Flowbite JS -->
+    <!-- Flowbite & Cuelinks scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+    <!-- This now correctly links to your external cuelinks.js file. -->
+    <script src="/static/cuelinks.js"></script>
 </body>
 </html>
 

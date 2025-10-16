@@ -10,6 +10,11 @@
             "src": "/(.*)",
             "dest": "app.py"
         }
+    ],
+    "crons": [
+        {
+            "path": "/api/update-courses",
+            "schedule": "0 5 1 * *"
+        }
     ]
 }
-
