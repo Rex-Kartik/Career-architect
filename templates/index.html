@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- The title of the page, which appears in the browser tab and search engine results. -->
     <title>The Career Map - AI-Powered Career Roadmaps</title>
-    <!-- Links to our new favicon file located in the static directory. -->
+    <!-- Links to our favicon file located in the static directory. -->
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <!-- The script for Tailwind CSS, a utility-first CSS framework for rapid UI development. -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -60,15 +60,18 @@
         .suggestion-active {
             background-color: #374151;
         }
-        /* Keyframe animation for the loading text. */
-        .fade-in-out {
-            animation: fadeInOut 4.5s ease-in-out infinite;
-            opacity: 0; position: absolute;
+        /* Keyframe animation for the cycling facts text. */
+        .fact-fade {
+            animation: factFade 8s ease-in-out infinite;
+            opacity: 0;
+            position: absolute;
+            width: 100%;
+            text-align: center;
         }
-        @keyframes fadeInOut {
-            0%, 100% { opacity: 0; }
-            10%, 25% { opacity: 1; }
-            33% { opacity: 0; }
+        @keyframes factFade {
+            0%, 100% { opacity: 0; transform: translateY(10px); }
+            10%, 80% { opacity: 1; transform: translateY(0); }
+            90%, 95% { opacity: 0; transform: translateY(-10px);}
         }
         /* Styles for the expandable content within the action plan cards. */
         .card-content {
@@ -84,6 +87,9 @@
         .chevron { transition: transform 0.3s ease-in-out; }
         /* When a card has the 'open' class, this rotates the chevron icon. */
         .card.open .chevron { transform: rotate(180deg); }
+        /* A simple animation for new log entries */
+        @keyframes popIn { 0% { opacity: 0; transform: scale(0.95); } 100% { opacity: 1; transform: scale(1); } }
+        .log-entry { animation: popIn 0.3s ease-out; }
     </style>
 </head>
 <body class="min-h-screen">
@@ -109,34 +115,33 @@
             </form>
         </section>
         
-        <!-- The simple loading indicator section, hidden by default. -->
-        <section id="loading-section" class="text-center hidden my-16">
-            <div class="relative h-8 w-full max-w-md mx-auto text-xl">
-                 <p class="fade-in-out" style="animation-delay: 0s;">Analyzing your career goal...</p>
-                 <p class="fade-in-out" style="animation-delay: 1.5s;">Consulting real-time web results...</p>
-                 <p class="fade-in-out" style="animation-delay: 3s;">Designing your personalized path...</p>
+        <!-- This is the "Intelligent Loading Screen" with a logs viewer. -->
+        <section id="intelligent-loading-section" class="hidden my-16 max-w-3xl mx-auto">
+            <h2 class="text-3xl font-bold text-center mb-4">Crafting Your Roadmap for...</h2>
+            <p class="text-center text-2xl font-semibold text-purple-400 mb-8" id="loading-job-title"></p>
+            
+            <div class="w-full bg-gray-700 rounded-full h-2.5 mb-4">
+                <div id="progress-bar" class="bg-purple-600 h-2.5 rounded-full transition-all duration-500 ease-linear" style="width: 0%"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div id="facts-container" class="relative h-24 text-gray-400 italic text-center">
+                    <!-- Interesting facts will be dynamically inserted here. -->
+                </div>
+                <div class="glass-card p-4 font-mono text-xs text-gray-300 h-48 overflow-y-auto">
+                    <div id="logs-container"></div>
+                </div>
             </div>
         </section>
 
         <section id="results-dashboard" class="hidden">
-            <div class="text-center mb-12">
-                <h2 class="text-3xl font-bold" id="roadmap-title"></h2>
-            </div>
+            <!-- This section's HTML is unchanged. -->
+            <div class="text-center mb-12"><h2 class="text-3xl font-bold" id="roadmap-title"></h2></div>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div class="glass-card p-6">
-                    <h3 class="text-2xl font-bold mb-4">Visual Path</h3>
-                    <div id="mermaid-graph" class="mermaid flex justify-center items-start min-h-[400px] max-h-[60vh] overflow-auto"></div>
-                </div>
-                <div class="glass-card p-6">
-                    <h3 class="text-2xl font-bold mb-4">Your Action Plan</h3>
-                    <div id="roadmap-details" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2"></div>
-                </div>
+                <div class="glass-card p-6"><h3 class="text-2xl font-bold mb-4">Visual Path</h3><div id="mermaid-graph" class="mermaid flex justify-center items-start min-h-[400px] max-h-[60vh] overflow-auto"></div></div>
+                <div class="glass-card p-6"><h3 class="text-2xl font-bold mb-4">Your Action Plan</h3><div id="roadmap-details" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2"></div></div>
             </div>
-            <div class="text-center mt-12">
-                <button id="export-button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full transition-colors text-lg">
-                    Export Your Plan
-                </button>
-            </div>
+            <div class="text-center mt-12"><button id="export-button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full transition-colors text-lg">Export Your Plan</button></div>
         </section>
         
         <div id="error-message" class="text-red-400 text-center mt-8 font-semibold"></div>
@@ -146,7 +151,7 @@
         // --- Initialization and DOM Selections ---
         mermaid.initialize({ startOnLoad: false, theme: 'dark' });
         const heroSection = document.getElementById('hero-section');
-        const loadingSection = document.getElementById('loading-section');
+        const loadingSection = document.getElementById('intelligent-loading-section');
         const resultsDashboard = document.getElementById('results-dashboard');
         const form = document.getElementById('roadmap-form');
         const jobTitleInput = document.getElementById('job-title-input');
@@ -156,12 +161,18 @@
         const errorContainer = document.getElementById('error-message');
         const exportButton = document.getElementById('export-button');
         const roadmapTitle = document.getElementById('roadmap-title');
+        const loadingJobTitle = document.getElementById('loading-job-title');
+        const logsContainer = document.getElementById('logs-container');
+        const factsContainer = document.getElementById('facts-container');
+        const progressBar = document.getElementById('progress-bar');
         
         // --- State Variables ---
         let activeSuggestionIndex = -1;
+        let pollingInterval; // A variable to hold our polling interval.
+        let factInterval; // A variable for the facts interval.
         document.body.style.overflow = 'hidden';
 
-        // --- Search and Keyboard Navigation Logic ---
+        // --- Search and Keyboard Navigation Logic (Unchanged) ---
         jobTitleInput.addEventListener('input', async () => {
             const query = jobTitleInput.value.trim();
             activeSuggestionIndex = -1; 
@@ -173,11 +184,7 @@
                 const div = document.createElement('div');
                 div.textContent = suggestion;
                 div.classList.add('suggestion-item');
-                div.onclick = () => {
-                    jobTitleInput.value = suggestion;
-                    suggestionsBox.innerHTML = '';
-                    form.requestSubmit();
-                };
+                div.onclick = () => { jobTitleInput.value = suggestion; suggestionsBox.innerHTML = ''; form.requestSubmit(); };
                 suggestionsBox.appendChild(div);
             });
         });
@@ -187,12 +194,7 @@
             if (e.key === 'ArrowDown') { e.preventDefault(); activeSuggestionIndex = (activeSuggestionIndex + 1) % suggestions.length; updateActiveSuggestion(suggestions); } 
             else if (e.key === 'ArrowUp') { e.preventDefault(); activeSuggestionIndex = (activeSuggestionIndex - 1 + suggestions.length) % suggestions.length; updateActiveSuggestion(suggestions); }
             else if (e.key === 'Enter' && activeSuggestionIndex > -1) { e.preventDefault(); suggestions[activeSuggestionIndex].click(); }
-            else if (e.key === 'Tab' && suggestions.length > 0) {
-                e.preventDefault();
-                if (activeSuggestionIndex === -1) activeSuggestionIndex = 0;
-                jobTitleInput.value = suggestions[activeSuggestionIndex].textContent;
-                suggestionsBox.innerHTML = '';
-            }
+            else if (e.key === 'Tab' && suggestions.length > 0) { e.preventDefault(); if (activeSuggestionIndex === -1) activeSuggestionIndex = 0; jobTitleInput.value = suggestions[activeSuggestionIndex].textContent; suggestionsBox.innerHTML = ''; }
         });
         function updateActiveSuggestion(suggestions) {
             suggestions.forEach((suggestion, index) => {
@@ -201,60 +203,119 @@
             });
         }
         document.addEventListener('click', (e) => { if (!jobTitleInput.contains(e.target)) suggestionsBox.innerHTML = ''; });
+
+        // --- Helper functions for the Loading Screen ---
+        function addLog(message, type = 'info') {
+            const logEntry = document.createElement('p');
+            logEntry.className = 'log-entry';
+            let prefix = '[INFO]';
+            let colorClass = 'text-gray-400';
+            if (type === 'success') { prefix = '[SUCCESS]'; colorClass = 'text-green-400'; }
+            logEntry.innerHTML = `<span class="${colorClass}">${prefix}</span> ${message}`;
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        function startIntelligentLoading(loadingContent, correctedTitle) {
+            loadingJobTitle.textContent = correctedTitle;
+            // Start cycling through interesting facts
+            let factIndex = 0;
+            clearInterval(factInterval); // Clear any old interval
+            factsContainer.innerHTML = `<p class="fact-fade">${loadingContent.facts[factIndex]}</p>`;
+            factInterval = setInterval(() => {
+                factIndex = (factIndex + 1) % loadingContent.facts.length;
+                const newFact = document.createElement('p');
+                newFact.className = 'fact-fade';
+                newFact.textContent = loadingContent.facts[factIndex];
+                factsContainer.innerHTML = '';
+                factsContainer.appendChild(newFact);
+            }, 8000);
+        }
+
+        // --- Polling function to get status updates ---
+        function pollStatus(taskId, correctedTitle) {
+            clearInterval(pollingInterval);
+            pollingInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/status/${taskId}`);
+                    if (!response.ok) return;
+                    const data = await response.json();
+
+                    if (data.status === 'running') { 
+                        addLog(data.message); 
+                        progressBar.style.width = `${data.progress || 10}%`;
+                    } else if (data.status === 'complete') {
+                        clearInterval(pollingInterval);
+                        clearInterval(factInterval);
+                        addLog("Roadmap generation complete!", 'success');
+                        progressBar.style.width = '100%';
+                        setTimeout(() => {
+                            displayRoadmap(data.result.roadmap_data, data.result.corrected_title);
+                            loadingSection.classList.add('hidden');
+                        }, 1000);
+                    } else if (data.status === 'error') {
+                        clearInterval(pollingInterval);
+                        clearInterval(factInterval);
+                        displayError(data.message);
+                        loadingSection.classList.add('hidden');
+                    }
+                } catch (error) {
+                    console.error("Polling error:", error);
+                    clearInterval(pollingInterval);
+                }
+            }, 2500); // Check for status updates every 2.5 seconds.
+        }
         
-        // --- Form Submission Logic (Simplified) ---
+        // --- Form Submission Logic (Re-architected for polling) ---
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
             const jobTitle = jobTitleInput.value.trim();
             if (!jobTitle) return;
 
-            // Hide the main form and show the loading animation.
             heroSection.classList.add('hidden');
             resultsDashboard.classList.add('hidden');
             loadingSection.classList.remove('hidden');
             errorContainer.textContent = '';
+            logsContainer.innerHTML = '';
             
             try {
-                // Make a single call to the backend to generate or fetch the roadmap.
-                const response = await fetch('/api/create-roadmap', {
+                const initialResponse = await fetch('/api/create-roadmap', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ job_title: jobTitle })
                 });
-                if (!response.ok) throw new Error((await response.json()).detail || 'Failed to generate roadmap.');
-                
-                const responseData = await response.json();
-                
-                // The backend returns the final roadmap, and we display it directly.
-                displayRoadmap(responseData.roadmap_data, responseData.corrected_title);
 
+                if (!initialResponse.ok) throw new Error((await initialResponse.json()).detail || 'Failed to start generation.');
+                const initialData = await initialResponse.json();
+
+                if (initialData.final_roadmap) {
+                    displayRoadmap(initialData.final_roadmap, initialData.corrected_title);
+                    loadingSection.classList.add('hidden');
+                    return;
+                }
+
+                if (initialData.task_id) {
+                    startIntelligentLoading(initialData.loading_content, initialData.corrected_title);
+                    addLog("Request received. Starting generation process...");
+                    pollStatus(initialData.task_id, initialData.corrected_title);
+                }
             } catch (error) {
-                // If anything goes wrong, we show an error message.
                 displayError(error.message);
-            } finally {
-                // We always hide the loading spinner when the process is finished.
                 loadingSection.classList.add('hidden');
             }
         });
 
         // --- Display and Helper Functions ---
         async function displayRoadmap(roadmapData, correctedTitle) {
-            // Re-enable page scrolling and show the results dashboard.
             document.body.style.overflow = 'auto';
             resultsDashboard.classList.remove('hidden');
             roadmapTitle.textContent = `Your Custom Roadmap: ${correctedTitle}`;
-            
-            // Render the Mermaid graph.
             mermaidContainer.innerHTML = '';
             if (roadmapData && roadmapData.mermaid_graph) {
                 const { svg } = await mermaid.render(`graph-${Date.now()}`, roadmapData.mermaid_graph);
                 mermaidContainer.innerHTML = svg;
             }
-
-            // Load user's progress from local storage.
             const progress = JSON.parse(localStorage.getItem(`progress_${correctedTitle.toLowerCase()}`) || '{}');
-            
-            // Build and display the step-by-step action plan cards.
             detailsContainer.innerHTML = '';
             if (roadmapData && Array.isArray(roadmapData.roadmap)) {
                 roadmapData.roadmap.forEach((step, index) => {
@@ -272,13 +333,9 @@
                     detailsContainer.appendChild(card);
                 });
             }
-            
-            // Set up interactivity for the new cards and graph.
             setupInteractivity(correctedTitle);
-            // Set up the export button.
             exportButton.onclick = () => exportToHtml(correctedTitle, roadmapData.roadmap);
         }
-        
         function setupInteractivity(correctedTitle) {
              const progress = JSON.parse(localStorage.getItem(`progress_${correctedTitle.toLowerCase()}`) || '{}');
             detailsContainer.querySelectorAll('.card').forEach((card, index) => {
@@ -314,14 +371,12 @@
                 card.addEventListener('click', () => card.classList.toggle('open'));
             });
         }
-
         function displayError(message) {
             document.body.style.overflow = 'hidden';
             resultsDashboard.classList.add('hidden');
-            heroSection.classList.remove('hidden'); // Show the hero section again on error.
+            heroSection.classList.remove('hidden');
             errorContainer.textContent = `An error occurred: ${message}`;
         }
-        
         function exportToHtml(correctedTitle, roadmapData) {
             if (!roadmapData || !Array.isArray(roadmapData.roadmap)) return;
             const detailsHtml = roadmapData.roadmap.map(step => {
@@ -343,7 +398,6 @@
     
     <!-- Flowbite & Cuelinks scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
-    <!-- This now correctly links to your external cuelinks.js file, which is served by FastAPI. -->
     <script type='text/javascript'>
       var cId = '249857';
 
@@ -355,7 +409,7 @@
         document.getElementsByTagName('body')[0].appendChild(s);
       }());
     </script>
-            
+         
 </body>
 </html>
 

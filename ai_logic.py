@@ -4,26 +4,23 @@ import os
 import json
 # Import the 're' module for using regular expressions to clean up text.
 import re
+# Import a utility to load environment variables from a .env file.
+from dotenv import load_dotenv
 # Import the libraries for our Hybrid AI Engine.
 import google.generativeai as genai
 from tavily import TavilyClient
-# Import a utility to load environment variables from a .env file.
-from dotenv import load_dotenv
 
+# --- Load Environment Variables ---
+# This ensures that this module can always access the necessary API keys.
 load_dotenv()
 
 # --- CONFIGURE THE AI CLIENTS AND ADD VALIDATION ---
-# This retrieves the API keys from the environment variables.
 gemini_api_key = os.environ.get("GEMINI_API_KEY")
 tavily_api_key = os.environ.get("TAVILY_API_KEY")
-
-# This is a crucial validation step to ensure the application doesn't start without its required keys.
 if not gemini_api_key or not tavily_api_key:
     raise ValueError("GEMINI_API_KEY or TAVILY_API_KEY not found. Please check your .env file.")
 
-# This configures the Google AI library with your secret API key.
 genai.configure(api_key=gemini_api_key)
-# This creates the client object for the Tavily Search API.
 tavily_client = TavilyClient(api_key=tavily_api_key)
 
 # --- PUBLIC AI FUNCTIONS ---
@@ -32,17 +29,11 @@ def get_corrected_job_title(job_title: str):
     """Uses the FASTEST AI (Gemini Flash-Lite) to correct spelling and standardize the user's input."""
     print(f"AI is correcting the job title: '{job_title}'")
     try:
-        # We create a simple, direct prompt for the AI.
         prompt = (f"Correct any spelling mistakes in the following job title and provide the standard, "
                   f"professional name for it. Respond with ONLY the corrected job title. "
                   f"Input: '{job_title}'")
-        
-        # We use 'gemini-2.5-flash-lite' as our specialist for this simple, high-frequency task.
         model = genai.GenerativeModel('gemini-2.5-flash-lite')
-        # Send the prompt to the AI.
         response = model.generate_content(prompt)
-        
-        # Extract and clean the corrected title from the response.
         corrected_title = response.text.strip().replace('"', '')
         print(f"AI suggested corrected title: '{corrected_title}'")
         return corrected_title
@@ -50,52 +41,105 @@ def get_corrected_job_title(job_title: str):
         print(f"Error during Gemini title correction: {e}")
         return job_title
 
-def get_ai_roadmap(job_title: str):
-    """
-    Generates a new career roadmap using a single, fast RAG call with Gemini Pro and Tavily.
-    """
-    print(f"Generating new roadmap from AI for: '{job_title}' using Tavily and Gemini 2.5 Pro")
+def get_loading_facts(job_title: str):
+    """Generates interesting facts for the loading screen."""
+    print(f"  > Generating loading screen facts for '{job_title}'...")
     try:
-        # --- 1. RETRIEVAL PHASE (The Researcher) ---
-        # We perform one broad search to get the latest context for the entire career path.
-        search_query = f"career path and best free and paid online courses with direct links for a {job_title} in 2025"
-        print(f"  > Performing web search with Tavily: '{search_query}'")
-        context = tavily_client.search(query=search_query, max_results=10) # Get more context for better results
-        # We format the search results into a clean string to be used as context for our reasoning AI.
-        search_context = "\n".join([f"URL: {res['url']}\nTitle: {res['title']}\nContent: {res['content']}" for res in context["results"]])
-
-        # --- 2. GENERATION PHASE (The Architect) ---
-        # This is our main prompt engineering, instructing the AI on its role and desired output format.
-        prompt = f"""
-        You are an expert career advisor. Based ONLY on the provided web search context, create a comprehensive, step-by-step career roadmap.
-        Here is the real-time web search context for '{job_title}':
-        ---
-        {search_context}
-        ---
-        Based on the context above, create a complete career roadmap.
-        Your response must be a single, valid JSON object with "roadmap" and "mermaid_graph" keys.
-        Each step in the "roadmap" array must have "title", "description", "skills", "free_course", and "paid_course" objects.
-        - Each course object must have a "name" and a direct, valid "url" extracted from the context.
-        - The "paid_course" object must also have a "reason" key explaining its value, based on the context.
-        - The "mermaid_graph" string MUST be valid Mermaid.js syntax. Node IDs MUST be 'step0', 'step1', etc., and descriptions MUST NOT contain special characters like ':', '(', ')'.
-        """
-        
-        print("  > Sending context to Gemini 2.5 Pro for generation...")
-        # We use the powerful 'gemini-2.5-pro' for this main creative task.
-        model = genai.GenerativeModel('gemini-2.5-pro')
-        # We send the prompt and tell the model to guarantee a JSON response.
+        # We ask the AI for a simple array of strings.
+        prompt = (f"For the career path of a '{job_title}', provide a JSON object with a 'facts' key, "
+                  f"containing an array of 4 short, interesting, one-sentence facts about this career.")
+        model = genai.GenerativeModel('gemini-2.5-flash-lite')
         response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
+        return json.loads(response.text)
+    except Exception as e:
+        print(f"    - AI Error during loading facts generation: {e}")
+        # We return a default object to prevent the app from crashing.
+        return {"facts": ["The journey to a new career is a marathon, not a sprint.", "Continuous learning is key to success in any field.", "Networking can open doors to unexpected opportunities."]}
+
+# --- "ASSEMBLY LINE" HELPER FUNCTIONS ---
+def _get_roadmap_step_titles(job_title: str):
+    """Station 1: The Brainstormer. Gets only the titles of the roadmap steps."""
+    prompt = (f"You are a career planner. What are the main sequential steps to become a '{job_title}'? "
+              f"Respond with only a JSON object: {{\"steps\": [\"Step 1 Title\", \"Step 2 Title\", ...]}}.")
+    model = genai.GenerativeModel('gemini-2.5-pro')
+    response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
+    content = json.loads(response.text)
+    return content.get("steps", [])
+
+def _get_details_for_step(step_title: str):
+    """Station 2: The Elaborator. Gets the description and skills for a single step title."""
+    prompt = (f"For the topic '{step_title}', what is a good one-sentence description and what are the 3-5 most important skills to learn? "
+              f"Respond with only a JSON object with 'description' and 'skills' keys (an array of strings).")
+    model = genai.GenerativeModel('gemini-2.5-flash-lite')
+    response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
+    return json.loads(response.text)
+
+def _find_courses_for_step_with_focused_search(step_title: str):
+    """Station 3: The Focused Researcher & Selector. Uses RAG to find reliable course links."""
+    try:
+        search_sites_filter = "site:udemy.com/course/ OR site:coursera.org/learn/ OR site:edx.org/course/ OR site:youtube.com/playlist OR site:freecodecamp.org/learn/"
+        search_query = f"best '{step_title}' course {search_sites_filter}"
+        context_results = tavily_client.search(query=search_query, max_results=7)
+        search_context = "\n".join([f"URL: {res['url']}\nTitle: {res['title']}\nContent: {res['content']}" for res in context_results["results"]])
+        prompt = (f"You are an expert course selector. Based ONLY on the provided context, select the best free and paid course for '{step_title}'. "
+                  f"Context:\n---{search_context}\n---\n"
+                  f"Your response must be a JSON object with 'free_course' and 'paid_course' keys. "
+                  f"Each object must have a 'name', a direct 'url', and a 'reason' (for the paid course). If no course is found, return null.")
+        model = genai.GenerativeModel('gemini-2.5-flash-lite')
+        response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
+        return json.loads(response.text)
+    except Exception as e:
+        print(f"    - AI Error finding courses for '{step_title}': {e}")
+        return {"free_course": {"name": "Not Found", "url": "#"}, "paid_course": {"name": "Not Found", "url": "#"}}
+
+def _build_mermaid_graph(steps: list):
+    """Final Assembly: The Builder. Programmatically creates a valid Mermaid graph string."""
+    graph_str = "graph TD\n"
+    for i, step in enumerate(steps):
+        clean_title = re.sub(r'[^a-zA-Z0-9\s-]', '', step['title'])
+        graph_str += f"    step{i}[{clean_title}]\n"
+        if i > 0:
+            graph_str += f"    step{i-1} --> step{i}\n"
+    return graph_str
+
+def get_ai_roadmap(job_title: str, task_id: str, task_statuses: dict):
+    """The main orchestrator for the 'AI Assembly Line' strategy, now with status updates."""
+    print(f"Generating new roadmap from AI for: '{job_title}' using multi-step process")
+    try:
+        # --- Station 1: The Brainstormer ---
+        task_statuses[task_id] = {"status": "running", "message": "Brainstorming core roadmap steps...", "progress": 10}
+        step_titles = _get_roadmap_step_titles(job_title)
+        if not step_titles:
+            raise ValueError("AI Brainstormer failed to generate step titles.")
         
-        # We clean the response as a safeguard to remove markdown backticks.
-        cleaned_text = response.text.strip()
-        if cleaned_text.startswith("```json"):
-            cleaned_text = cleaned_text[7:]
-        if cleaned_text.endswith("```"):
-            cleaned_text = cleaned_text[:-3]
-        # Return the final JSON string.
-        return cleaned_text
+        full_roadmap_steps = []
+        total_steps = len(step_titles)
+
+        # --- Loop for Stations 2 & 3 ---
+        for i, title in enumerate(step_titles):
+            current_progress = 10 + int(80 * (i / total_steps))
+            # --- Station 2: The Elaborator ---
+            task_statuses[task_id] = {"status": "running", "message": f"[{i+1}/{total_steps}] Defining skills for '{title}'...", "progress": current_progress}
+            details = _get_details_for_step(title)
+            
+            # --- Station 3: The Researcher ---
+            task_statuses[task_id] = {"status": "running", "message": f"[{i+1}/{total_steps}] Searching for the best courses for '{title}'...", "progress": current_progress + int(80 / total_steps / 2)}
+            courses = _find_courses_for_step_with_focused_search(title)
+            
+            # Assemble the complete object for this step.
+            step_obj = { "title": title, "description": details.get("description", ""), "skills": details.get("skills", []), "free_course": courses.get("free_course"), "paid_course": courses.get("paid_course") }
+            full_roadmap_steps.append(step_obj)
+
+        # --- Final Assembly ---
+        task_statuses[task_id] = {"status": "running", "message": "Assembling the final visual graph...", "progress": 95}
+        mermaid_graph = _build_mermaid_graph(full_roadmap_steps)
+        final_roadmap = {"roadmap": full_roadmap_steps, "mermaid_graph": mermaid_graph}
+        
+        # Return the final object as a JSON string.
+        return json.dumps(final_roadmap)
         
     except Exception as e:
-        print(f"Hybrid AI error during roadmap generation: {e}")
-        return None
+        # If any step fails, we re-raise the exception to be caught by the background task handler.
+        print(f"Hybrid AI error during multi-step roadmap generation: {e}")
+        raise e
 
