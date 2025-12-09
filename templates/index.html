@@ -96,6 +96,43 @@
     <div id="background-animation"></div>
 
     <main class="relative z-10 w-full max-w-7xl mx-auto p-4 md:p-8 transition-all duration-500" id="main-content">
+        <!-- Simple Auth Bar -->
+        <div class="w-full flex justify-end mb-4">
+            <div id="auth-bar" class="flex items-center gap-3">
+                <div id="user-info" class="text-sm text-gray-300 hidden">Signed in as <span id="user-email" class="font-semibold"></span></div>
+                <button id="sign-in-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-full">Sign in</button>
+                <button id="sign-up-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-full">Sign up</button>
+                <button id="sign-out-btn" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-full hidden">Sign out</button>
+            </div>
+        </div>
+        <!-- Auth Modal -->
+        <div id="auth-modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50">
+            <div class="bg-gray-900 rounded-lg p-6 w-full max-w-md glass-card">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 id="auth-modal-title" class="text-lg font-bold">Sign in</h3>
+                    <button id="auth-modal-close" class="text-gray-400 hover:text-white">✕</button>
+                </div>
+                <div id="auth-forms">
+                    <form id="sign-in-form" class="space-y-3">
+                        <input id="signin-email" type="email" placeholder="Email" class="w-full p-3 rounded bg-gray-800 border border-gray-700" required>
+                        <input id="signin-password" type="password" placeholder="Password" class="w-full p-3 rounded bg-gray-800 border border-gray-700" required>
+                        <div class="flex justify-end gap-2">
+                            <button type="submit" class="bg-indigo-600 px-4 py-2 rounded">Sign in</button>
+                            <button type="button" id="show-signup" class="bg-gray-700 px-4 py-2 rounded">Sign up</button>
+                        </div>
+                    </form>
+                    <form id="sign-up-form" class="space-y-3 hidden">
+                        <input id="signup-email" type="email" placeholder="Email" class="w-full p-3 rounded bg-gray-800 border border-gray-700" required>
+                        <input id="signup-password" type="password" placeholder="Password (min 6 chars)" class="w-full p-3 rounded bg-gray-800 border border-gray-700" required>
+                        <div class="flex justify-end gap-2">
+                            <button type="submit" class="bg-green-600 px-4 py-2 rounded">Create account</button>
+                            <button type="button" id="show-signin" class="bg-gray-700 px-4 py-2 rounded">Back</button>
+                        </div>
+                    </form>
+                    <p id="auth-error" class="text-sm text-red-400 mt-3 hidden"></p>
+                </div>
+            </div>
+        </div>
         <!-- The hero section's HTML is unchanged. -->
         <section id="hero-section" class="min-h-screen flex flex-col items-center justify-center text-center">
             <h1 class="text-4xl md:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400">
@@ -150,6 +187,118 @@
     <script>
         // --- Initialization and DOM Selections ---
         mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+        // --- Supabase Auth Initialization (frontend) ---
+        const SUPABASE_URL = "{{ supabase_url }}";
+        const SUPABASE_ANON_KEY = "{{ supabase_anon_key }}";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let currentSession = null;
+
+        const signInBtn = document.getElementById('sign-in-btn');
+        const signUpBtn = document.getElementById('sign-up-btn');
+        const signOutBtn = document.getElementById('sign-out-btn');
+        const userInfo = document.getElementById('user-info');
+        const userEmailSpan = document.getElementById('user-email');
+
+        async function refreshSessionUI() {
+            try {
+                const { data } = await supabaseClient.auth.getSession();
+                currentSession = data.session;
+                if (currentSession && currentSession.user) {
+                    userEmailSpan.textContent = currentSession.user.email || '';
+                    userInfo.classList.remove('hidden');
+                    signInBtn.classList.add('hidden');
+                    signUpBtn.classList.add('hidden');
+                    signOutBtn.classList.remove('hidden');
+                } else {
+                    userInfo.classList.add('hidden');
+                    signInBtn.classList.remove('hidden');
+                    signUpBtn.classList.remove('hidden');
+                    signOutBtn.classList.add('hidden');
+                }
+            } catch (err) {
+                console.error('Error checking session:', err);
+            }
+        }
+
+        // Modal-based sign-up / sign-in flows
+        const authModal = document.getElementById('auth-modal');
+        const authModalClose = document.getElementById('auth-modal-close');
+        const authModalTitle = document.getElementById('auth-modal-title');
+        const signInForm = document.getElementById('sign-in-form');
+        const signUpForm = document.getElementById('sign-up-form');
+        const showSignupBtn = document.getElementById('show-signup');
+        const showSigninBtn = document.getElementById('show-signin');
+        const authError = document.getElementById('auth-error');
+
+        function openAuthModal(mode = 'signin') {
+            authError.classList.add('hidden');
+            if (mode === 'signin') {
+                authModalTitle.textContent = 'Sign in';
+                signInForm.classList.remove('hidden');
+                signUpForm.classList.add('hidden');
+            } else {
+                authModalTitle.textContent = 'Create account';
+                signInForm.classList.add('hidden');
+                signUpForm.classList.remove('hidden');
+            }
+            authModal.classList.remove('hidden');
+            authModal.style.display = 'flex';
+        }
+        function closeAuthModal() {
+            authModal.classList.add('hidden');
+            authModal.style.display = 'none';
+        }
+
+        signInBtn.addEventListener('click', () => openAuthModal('signin'));
+        signUpBtn.addEventListener('click', () => openAuthModal('signup'));
+        authModalClose.addEventListener('click', closeAuthModal);
+
+        showSignupBtn.addEventListener('click', () => openAuthModal('signup'));
+        showSigninBtn.addEventListener('click', () => openAuthModal('signin'));
+
+        signInForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('signin-email').value.trim();
+            const password = document.getElementById('signin-password').value;
+            authError.classList.add('hidden');
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                if (error) throw error;
+                await refreshSessionUI();
+                closeAuthModal();
+            } catch (err) {
+                authError.textContent = err.message || 'Sign in failed';
+                authError.classList.remove('hidden');
+            }
+        });
+
+        signUpForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('signup-email').value.trim();
+            const password = document.getElementById('signup-password').value;
+            authError.classList.add('hidden');
+            try {
+                const { data, error } = await supabaseClient.auth.signUp({ email, password });
+                if (error) throw error;
+                await refreshSessionUI();
+                closeAuthModal();
+                alert('Sign up successful — check your email for confirmation (if required).');
+            } catch (err) {
+                authError.textContent = err.message || 'Sign up failed';
+                authError.classList.remove('hidden');
+            }
+        });
+
+        signOutBtn.addEventListener('click', async () => {
+            await supabaseClient.auth.signOut();
+            currentSession = null;
+            await refreshSessionUI();
+        });
+
+        // React to auth state changes
+        supabaseClient.auth.onAuthStateChange(() => refreshSessionUI());
+        // initialize ui
+        refreshSessionUI();
         const heroSection = document.getElementById('hero-section');
         const loadingSection = document.getElementById('intelligent-loading-section');
         const resultsDashboard = document.getElementById('results-dashboard');
@@ -279,9 +428,15 @@
             logsContainer.innerHTML = '';
             
             try {
+                // Include Authorization header if user is signed in (send Supabase access token)
+                const { data: sessionData } = await supabaseClient.auth.getSession();
+                const accessToken = sessionData?.session?.access_token || null;
+                const headers = { 'Content-Type': 'application/json' };
+                if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
                 const initialResponse = await fetch('/api/create-roadmap', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers,
                     body: JSON.stringify({ job_title: jobTitle })
                 });
 

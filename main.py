@@ -6,6 +6,8 @@ import json
 import asyncio
 # Import uuid to generate unique task IDs for the background process.
 import uuid
+import requests
+import time
 # From the FastAPI library, we import the necessary components, including BackgroundTasks.
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -31,9 +33,59 @@ templates = Jinja2Templates(directory="templates")
 # --- CONFIGURE DATABASE CLIENT ---
 supabase_url = os.environ.get("SUPABASE_URL")
 supabase_key = os.environ.get("SUPABASE_KEY")
+supabase_anon_key = os.environ.get("SUPABASE_ANON_KEY")
 if not supabase_url or not supabase_key:
     raise ValueError("SUPABASE_URL or SUPABASE_KEY not found. Please check your .env file.")
 supabase_master_client: Client = create_client(supabase_url, supabase_key)
+
+
+def verify_supabase_token(access_token: str):
+    """Verify a Supabase access token by calling the Supabase Auth user endpoint.
+
+    Returns the user JSON on success, or None on failure. This avoids needing the
+    project's JWT secret on the server.
+    """
+    try:
+        if not access_token:
+            return None
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "apikey": supabase_anon_key or "",
+        }
+        resp = requests.get(f"{supabase_url}/auth/v1/user", headers=headers, timeout=5)
+        if resp.status_code == 200:
+            return resp.json()
+        print(f"Token verification failed: {resp.status_code} {resp.text}")
+    except Exception as e:
+        print(f"Error verifying Supabase token: {e}")
+    return None
+
+
+# --- Token verification cache ---
+_token_verification_cache = {}
+# seconds to cache a verified token
+_TOKEN_CACHE_TTL = int(os.environ.get("TOKEN_CACHE_TTL", "300"))
+
+def verify_supabase_token_cached(access_token: str):
+    """Verify token but cache successful results for _TOKEN_CACHE_TTL seconds.
+
+    Returns user JSON on success or None on failure.
+    """
+    if not access_token:
+        return None
+    now = time.time()
+    cache_entry = _token_verification_cache.get(access_token)
+    if cache_entry:
+        user, expires_at = cache_entry
+        if expires_at > now:
+            return user
+        # expired - delete
+        del _token_verification_cache[access_token]
+
+    user = verify_supabase_token(access_token)
+    if user:
+        _token_verification_cache[access_token] = (user, now + _TOKEN_CACHE_TTL)
+    return user
 
 # --- In-Memory Task Management ---
 # This dictionary will store the status of our background tasks, accessible by their unique task_id.
@@ -104,9 +156,30 @@ async def search_suggestions(q: str = ""):
     return get_db_suggestions(q)
 
 @app.post("/api/create-roadmap")
-async def create_roadmap(request: RoadmapRequest, background_tasks: BackgroundTasks):
-    """This endpoint now starts a background task and immediately returns a task ID and loading content."""
-    user_job_title = request.job_title
+async def create_roadmap(request: Request, payload: RoadmapRequest, background_tasks: BackgroundTasks):
+    """This endpoint now starts a background task and immediately returns a task ID and loading content.
+
+    Optional: If the frontend includes an Authorization header (Supabase access token), we log it here.
+    Server-side verification of the token is not implemented in this patch — see README or comments for
+    instructions on verifying Supabase JWTs on the server.
+    """
+    user_job_title = payload.job_title
+    # Read Authorization header if present (frontend may send Supabase access token)
+    auth_header = request.headers.get('authorization') or request.headers.get('Authorization')
+    current_user = None
+    if auth_header:
+        try:
+            token = auth_header.split(' ')[1]
+            # Verify token with Supabase (using cache)
+            user = verify_supabase_token_cached(token)
+            if not user:
+                raise HTTPException(status_code=401, detail="Invalid or expired authentication token.")
+            current_user = user
+            print(f"Authenticated request from user: {user.get('email')}")
+        except HTTPException:
+            raise
+        except Exception:
+            print("Malformed Authorization header received.")
     if not user_job_title: raise HTTPException(status_code=400, detail="Job title is required.")
     
     corrected_title = ai_logic.get_corrected_job_title(user_job_title)
