@@ -32,7 +32,7 @@ def get_corrected_job_title(job_title: str):
         prompt = (f"Correct any spelling mistakes in the following job title and provide the standard, "
                   f"professional name for it. Respond with ONLY the corrected job title. "
                   f"Input: '{job_title}'")
-        model = genai.GenerativeModel('gemini-2.0-flash-lite')
+        model = genai.GenerativeModel('gemini-2.5-flash-lite')
         response = model.generate_content(prompt)
         corrected_title = response.text.strip().replace('"', '')
         print(f"AI suggested corrected title: '{corrected_title}'")
@@ -48,7 +48,7 @@ def get_loading_facts(job_title: str):
         # We ask the AI for a simple array of strings.
         prompt = (f"For the career path of a '{job_title}', provide a JSON object with a 'facts' key, "
                   f"containing an array of 4 short, interesting, one-sentence facts about this career.")
-        model = genai.GenerativeModel('gemini-2.0-flash-lite')
+        model = genai.GenerativeModel('gemini-2.5-flash-lite')
         response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
         return json.loads(response.text)
     except Exception as e:
@@ -61,7 +61,7 @@ def _get_roadmap_step_titles(job_title: str):
     """Station 1: The Brainstormer. Gets only the titles of the roadmap steps."""
     prompt = (f"You are a career planner. What are the main sequential steps to become a '{job_title}'? "
               f"Respond with only a JSON object: {{\"steps\": [\"Step 1 Title\", \"Step 2 Title\", ...]}}.")
-    model = genai.GenerativeModel('gemini-2.5-pro')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
     content = json.loads(response.text)
     return content.get("steps", [])
