@@ -20,6 +20,8 @@ import google.generativeai as genai
 # Import the Tavily client for web search.
 from tavily import TavilyClient
 
+from supabase import create_client
+
 # --- Load Environment Variables ---
 load_dotenv()
 
@@ -378,3 +380,11 @@ def get_ai_roadmap(job_title: str, task_id: str, task_statuses: dict) -> str:
     except Exception as e:
         print(f"Error during roadmap generation: {e}")
         raise
+
+# Use this to update progress inside the AI loop
+def update_task_progress(task_id: str, message: str, progress: int):
+    supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+    supabase.table('task_statuses').update({
+        "message": message,
+        # You can add a 'progress' column to your table if you want to track percentage
+    }).eq("id", task_id).execute()
