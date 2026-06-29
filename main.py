@@ -129,16 +129,30 @@ def get_db_suggestions(query: str):
 def background_roadmap_generation(corrected_title: str, task_id: str):
     """This function runs in the background to generate and save the roadmap, providing status updates along the way."""
     try:
-        # We pass the task_id and the statuses dictionary to the AI logic module so it can post live updates.
-        ai_response_str = ai_logic.get_ai_roadmap(corrected_title, task_id, task_statuses)
+        # Initialize status as 'running' in Supabase
+        supabase_master_client.table('task_statuses').insert({
+            "id": task_id, 
+            "status": "running", 
+            "message": "Brainstorming core roadmap steps…"
+        }).execute()
+        
+        # Pass the task_id to AI logic so it can update Supabase directly
+        ai_response_str = ai_logic.get_ai_roadmap(corrected_title, task_id)
         roadmap_json = json.loads(ai_response_str)
         save_roadmap_to_db(corrected_title, roadmap_json)
-        # When finished, we update the status to 'complete' and store the final result.
-        task_statuses[task_id] = {"status": "complete", "result": {'roadmap_data': roadmap_json, 'corrected_title': corrected_title}}
+        
+        # Update status to 'complete' in Supabase
+        supabase_master_client.table('task_statuses').update({
+            "status": "complete", 
+            "result": {'roadmap_data': roadmap_json, 'corrected_title': corrected_title}
+        }).eq("id", task_id).execute()
+        
     except Exception as e:
         print(f"Background task failed: {e}")
-        # If the task fails at any point, we update the status to 'error'.
-        task_statuses[task_id] = {"status": "error", "message": "Failed to generate the roadmap. Please try again."}
+        supabase_master_client.table('task_statuses').update({
+            "status": "error", 
+            "message": "Failed to generate the roadmap."
+        }).eq("id", task_id).execute()
 
 # --- API ENDPOINTS ---
 @app.get("/", response_class=HTMLResponse)
@@ -182,8 +196,7 @@ async def create_roadmap(request: Request, payload: RoadmapRequest, background_t
             print("Malformed Authorization header received.")
     if not user_job_title: raise HTTPException(status_code=400, detail="Job title is required.")
     
-    corrected_title = ai_logic.get_corrected_job_title(user_job_title)
-    
+    corrected_title = ai_logic.get_corrected_job_title(payload.job_title)
     cached_roadmap = check_db_for_roadmap(corrected_title)
     if cached_roadmap:
         return {'final_roadmap': cached_roadmap, 'corrected_title': corrected_title}
@@ -199,18 +212,21 @@ async def create_roadmap(request: Request, payload: RoadmapRequest, background_t
     background_tasks.add_task(background_roadmap_generation, corrected_title, task_id)
     
     # Immediately return the task ID and loading content to the user.
-    return JSONResponse(content={"task_id": task_id, "corrected_title": corrected_title, "loading_content": loading_content}, status_code=202)
+    return JSONResponse(content={"task_id": task_id}, status_code=202)
 
 @app.get("/api/status/{task_id}")
 async def get_status(task_id: str):
     """This new endpoint allows the frontend to poll for the status of a background task."""
-    status = task_statuses.get(task_id)
-    if not status:
-        raise HTTPException(status_code=404, detail="Task not found")
+    response = supabase_master_client.table('task_statuses').select('*').eq('id', task_id).single().execute()
     
-    # If the task is complete or has failed, we can return the result and clean up the status entry.
-    if status.get("status") == "complete" or status.get("status") == "error":
-        return task_statuses.pop(task_id)
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Task not found")
         
-    return status
+    status_data = response.data
+    
+    # If complete/error, delete from DB to clean up
+    if status_data.get("status") in ["complete", "error"]:
+        supabase_master_client.table('task_statuses').delete().eq("id", task_id).execute()
+        
+    return status_data
 
